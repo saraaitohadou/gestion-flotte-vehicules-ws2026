@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Date, Enum
+from sqlalchemy import Column, Integer, String, Date, Enum, DateTime ,func
 import enum
 from database import Base
 
@@ -15,7 +15,10 @@ class Chauffeur(Base):
     cin = Column(String(20), unique=True, nullable=False)
     nom = Column(String(50), nullable=False)
     prenom = Column(String(50), nullable=False)
+    telephone = Column(String(20), nullable=True)
     numero_permis = Column(String(30), unique=True, nullable=False)
     categorie_permis = Column(String(10), nullable=False)
     date_expiration_permis = Column(Date, nullable=False)
-    statut = Column(Enum(StatutChauffeur), default=StatutChauffeur.DISPONIBLE)
+    statut = Column(Enum(StatutChauffeur), nullable=False, default=StatutChauffeur.DISPONIBLE)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
