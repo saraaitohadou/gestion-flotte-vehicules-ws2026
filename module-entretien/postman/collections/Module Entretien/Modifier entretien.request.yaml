@@ -1,0 +1,13 @@
+$kind: http-request
+url: "{{base_url}}/entretiens/1"
+method: PUT
+headers:
+  Accept: application/json
+body:
+  type: json
+  content: |-
+    {
+      "statut": "termine",
+      "cout": 500
+    }
+order: 5000

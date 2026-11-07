@@ -1,0 +1,6 @@
+$kind: http-request
+url: "{{base_url}}/vehicules/1/entretiens"
+method: GET
+headers:
+  Accept: application/json
+order: 7000
