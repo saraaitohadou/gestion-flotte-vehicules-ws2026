@@ -98,7 +98,32 @@ class ChauffeurUpdate(BaseModel):
     def check_non_vide(cls, v):
         return valider_non_vide(v) if v is not None else v
 
+class ChauffeurStatutUpdate(BaseModel):
+    statut: StatutChauffeur
 
+class ChauffeurReactivation(BaseModel):
+    date_expiration_permis: Optional[date] = None
+
+class AffectationRequest(BaseModel):
+    categorie_vehicule: Optional[str] = None
+
+
+class CompatibiliteOut(BaseModel):
+    id_chauffeur: int
+    categorie_permis: str
+    categorie_vehicule: str
+    compatible: bool
+
+
+class EligibiliteOut(BaseModel):
+    id_chauffeur: int
+    statut: StatutChauffeur
+    permis_valide: bool
+    selectionnable: bool
+    affectable: bool
+    motifs: list[str]
+
+    
 class ChauffeurOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
