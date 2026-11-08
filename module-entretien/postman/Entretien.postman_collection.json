@@ -1,0 +1,49 @@
+{
+  "info": {
+    "name": "Module Entretien",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8001/api" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{base_url}}/health" }
+    },
+    {
+      "name": "Creer entretien",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Accept", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"vehicule_id\": 1,\n  \"date_entretien\": \"2026-11-10\",\n  \"type_entretien\": \"Vidange\",\n  \"description\": \"Vidange moteur\",\n  \"cout\": 450.5\n}", "options": { "raw": { "language": "json" } } },
+        "url": "{{base_url}}/entretiens"
+      }
+    },
+    {
+      "name": "Lister entretiens",
+      "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{base_url}}/entretiens" }
+    },
+    {
+      "name": "Detail entretien",
+      "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{base_url}}/entretiens/1" }
+    },
+    {
+      "name": "Modifier entretien",
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Accept", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"statut\": \"termine\",\n  \"cout\": 500\n}", "options": { "raw": { "language": "json" } } },
+        "url": "{{base_url}}/entretiens/1"
+      }
+    },
+    {
+      "name": "Supprimer entretien",
+      "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{base_url}}/entretiens/1" }
+    },
+    {
+      "name": "Historique vehicule",
+      "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{base_url}}/vehicules/1/entretiens" }
+    }
+  ]
+}

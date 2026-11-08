@@ -1,0 +1,37 @@
+$kind: http-request
+url: "{{base_url}}/entretiens"
+method: POST
+headers:
+  Accept: application/json
+body:
+  type: json
+  content: "{\r
+
+    \  \"vehicule_id\": 1,\r
+
+    \  \"date_entretien\": \"2026-11-10\",\r
+
+    \  \"type_entretien\": \"Vidange\",\r
+
+    \  \"description\": \"Vidange moteur\",\r
+
+    \  \"cout\": 450.5\r
+
+    }\r
+
+    \r
+
+    {\r
+
+    \  \"vehicule_id\": 2,\r
+
+    \  \"date_entretien\": \"2026-11-10\",\r
+
+    \  \"type_entretien\": \"Vidange\",\r
+
+    \  \"description\": \"Vidange moteur\",\r
+
+    \  \"cout\": 480.5\r
+
+    }"
+order: 2000

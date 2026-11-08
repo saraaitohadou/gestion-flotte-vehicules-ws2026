@@ -1,0 +1,6 @@
+$kind: http-request
+url: "{{base_url}}/entretiens/1"
+method: GET
+headers:
+  Accept: application/json
+order: 4000
