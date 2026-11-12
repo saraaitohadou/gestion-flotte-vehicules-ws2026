@@ -1,0 +1,9 @@
+vendor/
+.git/
+.env
+test_api.ps1
+test_repository.php
+test_service.php
+module-chauffeur/
+.venv/
+vendor/
