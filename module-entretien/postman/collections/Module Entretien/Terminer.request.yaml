@@ -1,0 +1,7 @@
+$kind: http-request
+url: "{{base_url}}/entretiens/{{entretien_id}}/terminer"
+method: PATCH
+body:
+  type: json
+  content: '{ "kilometrage": 54000 }'
+order: 9000

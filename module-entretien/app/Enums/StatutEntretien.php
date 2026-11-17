@@ -4,8 +4,8 @@ namespace App\Enums;
 
 enum StatutEntretien: string
 {
-    case Planifie = 'planifie';
-    case EnCours  = 'en_cours';
-    case Termine  = 'termine';
-    case Annule   = 'annule';
+    case Planifie = 'PLANIFIE';
+    case EnCours  = 'EN_COURS';
+    case Termine  = 'TERMINE';
+    case Annule   = 'ANNULE';
 }

@@ -7,7 +7,7 @@ info:
     Rôles : ADMINISTRATEUR (tout), GESTIONNAIRE (créer, modifier, démarrer, clôturer, annuler),
     CHAUFFEUR (lecture des entretiens de son véhicule).
 servers:
-  - url: http://localhost:8003/api
+  - url: http://localhost:8001/api
 security:
   - bearerAuth: []
 tags:
@@ -95,6 +95,7 @@ paths:
             schema:
               type: object
               properties:
+                date_fin: { type: string, format: date-time, description: 'Optionnel, now() par defaut' }
                 kilometrage: { type: integer, example: 52300 }
                 cout: { type: number, example: 950.5 }
       responses:

@@ -1,0 +1,4 @@
+$kind: http-request
+url: "{{base_url}}/entretiens/{{entretien_id}}/annuler"
+method: PATCH
+order: 10000
