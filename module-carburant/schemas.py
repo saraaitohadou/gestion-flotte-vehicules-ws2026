@@ -21,7 +21,7 @@ class CarburantCreate(BaseModel):
     prix_litre: float = Field(gt=0, description="Prix par litre (MAD)")
     kilometrage: int = Field(ge=0, description="Compteur au moment du plein")
     type_carburant: TypeCarburant
-    station: Optional[str] = None
+    station: Optional[str] = Field(default=None, max_length=100)
     plein_complet: bool = True
 
 
@@ -33,7 +33,7 @@ class CarburantUpdate(BaseModel):
     prix_litre: Optional[float] = Field(default=None, gt=0)
     kilometrage: Optional[int] = Field(default=None, ge=0)
     type_carburant: Optional[TypeCarburant] = None
-    station: Optional[str] = None
+    station: Optional[str] = Field(default=None, max_length=100)
     plein_complet: Optional[bool] = None
 
 
@@ -64,29 +64,3 @@ class StatsCarburant(BaseModel):
     distance_km: int
     consommation_l_100km: Optional[float] = None
     cout_au_km: Optional[float] = None
-
-
-# ---------- Vehicule / Chauffeur (minimal, pour tester le module) ----------
-
-class VehiculeCreate(BaseModel):
-    immatriculation: str
-    marque: str
-    modele: str
-
-
-class VehiculeOut(VehiculeCreate):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-
-
-class ChauffeurCreate(BaseModel):
-    nom: str
-    prenom: str
-    telephone: Optional[str] = None
-
-
-class ChauffeurOut(ChauffeurCreate):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int

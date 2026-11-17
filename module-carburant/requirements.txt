@@ -3,4 +3,6 @@ uvicorn
 sqlalchemy
 pydantic
 httpx
+PyMySQL
+cryptography
 pytest

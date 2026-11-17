@@ -28,12 +28,12 @@ def client():
     app.dependency_overrides[get_db] = override
     yield TestClient(app)
     app.dependency_overrides.clear()
+    engine.dispose()
 
 
-def preparer(client):
-    v = client.post("/vehicules", json={"immatriculation": "12345-A-6", "marque": "Dacia", "modele": "Logan"}).json()
-    c = client.post("/chauffeurs", json={"nom": "Alaoui", "prenom": "Youssef"}).json()
-    return v["id"], c["id"]
+def preparer(services):
+    """Declare un vehicule et un chauffeur connus des (faux) services."""
+    return services.nouveau_vehicule(), services.nouveau_chauffeur()
 
 
 def plein(vid, cid, jour, litres, km, prix=11.5, **extra):
@@ -49,23 +49,32 @@ def plein(vid, cid, jour, litres, km, prix=11.5, **extra):
     }
 
 
-def test_creation_calcule_le_montant(client):
-    vid, cid = preparer(client)
+def test_creation_calcule_le_montant(client, services):
+    vid, cid = preparer(services)
     r = client.post("/carburants", json=plein(vid, cid, "2026-10-01", 40, 10000))
     assert r.status_code == 201
     assert r.json()["montant_total"] == 460.0
 
 
-def test_references_inconnues(client):
+def test_references_inconnues(client, services):
     r = client.post("/carburants", json=plein(999, None, "2026-10-01", 40, 10000))
     assert r.status_code == 404
-    vid, _ = preparer(client)
+    vid, _ = preparer(services)
     r = client.post("/carburants", json=plein(vid, 999, "2026-10-01", 40, 10000))
     assert r.status_code == 404
 
 
-def test_validation_valeurs(client):
-    vid, cid = preparer(client)
+def test_service_vehicule_indisponible(client, services):
+    vid, cid = preparer(services)
+    services.en_panne.add("Vehicule")
+    r = client.post("/carburants", json=plein(vid, cid, "2026-10-01", 40, 10000))
+    assert r.status_code == 503
+    services.en_panne.clear()
+    assert client.get("/carburants").json() == []  # rien n'a ete enregistre
+
+
+def test_validation_valeurs(client, services):
+    vid, cid = preparer(services)
     assert client.post("/carburants", json=plein(vid, cid, "2026-10-01", -5, 10000)).status_code == 422
     assert client.post("/carburants", json=plein(vid, cid, "2026-10-01", 40, -1)).status_code == 422
     bad = plein(vid, cid, "2026-10-01", 40, 10000)
@@ -73,20 +82,22 @@ def test_validation_valeurs(client):
     assert client.post("/carburants", json=bad).status_code == 422
 
 
-def test_kilometrage_ne_peut_pas_reculer(client):
-    vid, cid = preparer(client)
+def test_kilometrage_ne_peut_pas_reculer(client, services):
+    vid, cid = preparer(services)
     client.post("/carburants", json=plein(vid, cid, "2026-10-01", 40, 10000))
     client.post("/carburants", json=plein(vid, cid, "2026-10-20", 40, 10800))
     # plus tard mais compteur plus bas
-    assert client.post("/carburants", json=plein(vid, cid, "2026-10-25", 40, 10500)).status_code == 422
+    assert client.post("/carburants", json=plein(vid, cid, "2026-10-25", 40, 10500)).status_code == 400
+    # meme compteur que le plein precedent: refuse aussi (strictement croissant)
+    assert client.post("/carburants", json=plein(vid, cid, "2026-10-25", 40, 10800)).status_code == 400
     # entre deux pleins avec un compteur trop haut
-    assert client.post("/carburants", json=plein(vid, cid, "2026-10-10", 40, 11000)).status_code == 422
+    assert client.post("/carburants", json=plein(vid, cid, "2026-10-10", 40, 11000)).status_code == 400
     # entre deux pleins, valeur coherente
     assert client.post("/carburants", json=plein(vid, cid, "2026-10-10", 40, 10400)).status_code == 201
 
 
-def test_liste_filtres_et_pagination(client):
-    vid, cid = preparer(client)
+def test_liste_filtres_et_pagination(client, services):
+    vid, cid = preparer(services)
     for i, jour in enumerate(["2026-09-01", "2026-09-15", "2026-10-01"]):
         client.post("/carburants", json=plein(vid, cid, jour, 40, 10000 + i * 500))
     assert len(client.get("/carburants").json()) == 3
@@ -95,8 +106,8 @@ def test_liste_filtres_et_pagination(client):
     assert client.get("/carburants", params={"vehicule_id": 999}).json() == []
 
 
-def test_modification_recalcule_le_montant(client):
-    vid, cid = preparer(client)
+def test_modification_recalcule_le_montant(client, services):
+    vid, cid = preparer(services)
     pid = client.post("/carburants", json=plein(vid, cid, "2026-10-01", 40, 10000)).json()["id"]
     r = client.patch(f"/carburants/{pid}", json={"quantite_litres": 50})
     assert r.status_code == 200
@@ -104,15 +115,15 @@ def test_modification_recalcule_le_montant(client):
     assert client.patch(f"/carburants/{pid}", json={"prix_litre": None}).status_code == 422
 
 
-def test_suppression(client):
-    vid, cid = preparer(client)
+def test_suppression(client, services):
+    vid, cid = preparer(services)
     pid = client.post("/carburants", json=plein(vid, cid, "2026-10-01", 40, 10000)).json()["id"]
     assert client.delete(f"/carburants/{pid}").status_code == 204
     assert client.get(f"/carburants/{pid}").status_code == 404
 
 
-def test_statistiques(client):
-    vid, cid = preparer(client)
+def test_statistiques(client, services):
+    vid, cid = preparer(services)
     client.post("/carburants", json=plein(vid, cid, "2026-10-01", 40, 10000))
     client.post("/carburants", json=plein(vid, cid, "2026-10-10", 36, 10600))
     client.post("/carburants", json=plein(vid, cid, "2026-10-20", 30, 11100))
@@ -125,8 +136,8 @@ def test_statistiques(client):
     assert client.get("/carburants/stats/vehicules/999").status_code == 404
 
 
-def test_statistiques_sans_donnees(client):
-    vid, _ = preparer(client)
+def test_statistiques_sans_donnees(client, services):
+    vid, _ = preparer(services)
     s = client.get(f"/carburants/stats/vehicules/{vid}").json()
     assert s["nombre_pleins"] == 0
     assert s["consommation_l_100km"] is None
@@ -141,8 +152,8 @@ def trois_pleins_normaux(client, vid, cid):
     client.post("/carburants", json=plein(vid, cid, "2026-10-15", 42, 11200))
 
 
-def test_consommation_stockee_sur_chaque_plein(client):
-    vid, cid = preparer(client)
+def test_consommation_stockee_sur_chaque_plein(client, services):
+    vid, cid = preparer(services)
     trois_pleins_normaux(client, vid, cid)
     pleins = client.get("/carburants", params={"vehicule_id": vid}).json()
     consos = [p["consommation_l_100km"] for p in reversed(pleins)]
@@ -150,11 +161,10 @@ def test_consommation_stockee_sur_chaque_plein(client):
     assert not any(p["anomalie"] for p in pleins)
 
 
-def test_alerte_surconsommation_quand_conso_double(client):
-    vid, cid = preparer(client)
+def test_alerte_surconsommation_quand_conso_double(client, services):
+    vid, cid = preparer(services)
     trois_pleins_normaux(client, vid, cid)
     # Meme distance mais le double de litres: 84 L pour 600 km = 14 L/100 km
-    # (3e consommation connue seulement apres 2 pleins normaux -> historique suffisant)
     client.post("/carburants", json=plein(vid, cid, "2026-10-22", 84, 11800))
     anomalies = client.get("/carburants/anomalies").json()
     assert len(anomalies) == 1
@@ -163,23 +173,23 @@ def test_alerte_surconsommation_quand_conso_double(client):
     assert "Surconsommation" in anomalies[0]["message_anomalie"]
 
 
-def test_pas_d_alerte_pour_une_petite_variation(client):
-    vid, cid = preparer(client)
+def test_pas_d_alerte_pour_une_petite_variation(client, services):
+    vid, cid = preparer(services)
     trois_pleins_normaux(client, vid, cid)
     # 7.7 L/100 km = +10 %, sous le seuil de 30 %
     client.post("/carburants", json=plein(vid, cid, "2026-10-22", 46.2, 11800))
     assert client.get("/carburants/anomalies").json() == []
 
 
-def test_pas_d_alerte_sans_historique_suffisant(client):
-    vid, cid = preparer(client)
+def test_pas_d_alerte_sans_historique_suffisant(client, services):
+    vid, cid = preparer(services)
     client.post("/carburants", json=plein(vid, cid, "2026-10-01", 40, 10000))
     client.post("/carburants", json=plein(vid, cid, "2026-10-08", 84, 10600))  # 14 L/100 km
     assert client.get("/carburants/anomalies").json() == []
 
 
-def test_alerte_retiree_si_le_plein_est_corrige_ou_supprime(client):
-    vid, cid = preparer(client)
+def test_alerte_retiree_si_le_plein_est_corrige_ou_supprime(client, services):
+    vid, cid = preparer(services)
     trois_pleins_normaux(client, vid, cid)
     pid = client.post("/carburants", json=plein(vid, cid, "2026-10-22", 84, 11800)).json()["id"]
     assert len(client.get("/carburants/anomalies").json()) == 1
@@ -193,8 +203,8 @@ def test_alerte_retiree_si_le_plein_est_corrige_ou_supprime(client):
     assert client.get("/carburants/anomalies").json() == []
 
 
-def test_anomalies_filtre_par_vehicule(client):
-    vid, cid = preparer(client)
+def test_anomalies_filtre_par_vehicule(client, services):
+    vid, cid = preparer(services)
     trois_pleins_normaux(client, vid, cid)
     client.post("/carburants", json=plein(vid, cid, "2026-10-22", 84, 11800))
     assert len(client.get("/carburants/anomalies", params={"vehicule_id": vid}).json()) == 1
