@@ -1,5 +1,5 @@
 $kind: http-request
-url: "{{base_url}}/entretiens"
+url: " {{base_url}}/entretiens"
 method: GET
 headers:
   Accept: application/json

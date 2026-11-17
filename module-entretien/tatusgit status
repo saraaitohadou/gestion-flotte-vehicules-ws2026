@@ -1,0 +1,40 @@
+* [33me9168d1[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m)[m docs(entretien): openapi 8001, postman demarrer/terminer/annuler/archiver
+* [33m4f5dc6f[m Entretien: demarrer/terminer/annuler
+* [33m200d4a2[m pour amlr l modele complet, mock
+* [33m106198d[m JWT
+* [33m1ebb7eb[m  ajout kilometrage f mock
+* [33mecb88ca[m zedt l  migration
+ [31m\[m 
+  * [33m315abd7[m Entretien: changement de statut, entretien termine et archive
+*   [33m63f2131[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Merge pull request #7 from saraaitohadou/feature/module-carburant
+[32m|[m[33m\[m  
+[32m|[m * [33mf07564c[m[33m ([m[1;31morigin/feature/module-carburant[m[33m)[m Carburant: MySQL, appels HTTP aux autres services, correction BUG-01 et BUG-02
+* [33m|[m [33me8a6bd6[m[33m ([m[1;31morigin/fix/suppression-doublon-vehicule[m[33m)[m chore(vehicule): suppression du dossier en double vehicule-service
+* [33m|[m   [33m9bec11a[m Merge pull request #6 from saraaitohadou/feature/module-vehicule
+[34m|[m[35m\[m [33m\[m  
+[34m|[m * [33m|[m [33m81e928c[m[33m ([m[1;31morigin/feature/module-vehicule[m[33m)[m feat(vehicule): ajout du module-vehicule et des 20 tests unitaires PHPUnit
+* [35m|[m [33m|[m [33m21890d9[m Merge pull request #5 from saraaitohadou/feature/service-vehicule
+[36m|[m[35m\[m[35m|[m [33m|[m 
+[36m|[m * [33m|[m [33m153baa0[m feat(vehicule): ajout du microservice vehicule et des 20 tests unitaires PHPUnit
+[36m|[m[36m/[m [33m/[m  
+* [33m|[m   [33m1da8bae[m Merge pull request #4 from saraaitohadou/feature/module-chauffeur
+[1;32m|[m[1;33m\[m [33m\[m  
+[1;32m|[m * [33m|[m [33m14901cf[m[33m ([m[1;31morigin/feature/module-chauffeur[m[33m)[m feat(chauffeur): finalisation du module chauffeur (regles metier, endpoints statut, soft delete et tests)
+* [1;33m|[m [33m|[m   [33m5ebe2f2[m Merge pull request #3 from saraaitohadou/feature/module-carburant
+[1;34m|[m[33m\[m [1;33m\[m [33m\[m  
+[1;34m|[m [33m|[m [1;33m|[m[33m/[m  
+[1;34m|[m [33m|[m[33m/[m[1;33m|[m   
+[1;34m|[m * [1;33m|[m [33md2ee03b[m feat(carburant): module carburant + tests unitaires + Dockerfile
+[1;34m|[m[1;34m/[m [1;33m/[m  
+* [1;33m|[m   [33mdd86df9[m Merge pull request #2 from saraaitohadou/feature/module-entretien
+[1;36m|[m[31m\[m [1;33m\[m  
+[1;36m|[m * [1;33m|[m [33mbd32df6[m[33m ([m[1;31morigin/feature/module-entretien[m[33m)[m feat(entretien): module entretien + tests unitaires EntretienService
+[1;36m|[m[1;36m/[m [1;33m/[m  
+* [1;33m|[m [33mf72813e[m Merge pull request #1 from saraaitohadou/feature/module-chauffeur
+[32m|[m[1;33m\[m[1;33m|[m 
+[32m|[m * [33m3009fa2[m feat(chauffeurs):continuer le dev du module chauffeur par ajouter la validation pydantic, unicite CIN/permis et architecture routers
+[32m|[m[32m/[m  
+* [33m5f0b5b7[m fix: conversion de module-chauffeur en dossier classique
+*   [33m6a8ac5f[m fix: resolution du conflit dans .gitignore
+[34m|[m[35m\[m  
+[34m|[m * [33m6483551[m Update .gitignore

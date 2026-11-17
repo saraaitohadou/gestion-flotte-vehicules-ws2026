@@ -9,29 +9,17 @@ body:
 
     \  \"vehicule_id\": 1,\r
 
-    \  \"date_entretien\": \"2026-11-10\",\r
+    \  \"type\": \"PREVENTIF\",\r
 
-    \  \"type_entretien\": \"Vidange\",\r
-
-    \  \"description\": \"Vidange moteur\",\r
-
-    \  \"cout\": 450.5\r
-
-    }\r
-
-    \r
-
-    {\r
-
-    \  \"vehicule_id\": 2,\r
-
-    \  \"date_entretien\": \"2026-11-10\",\r
-
-    \  \"type_entretien\": \"Vidange\",\r
+    \  \"categorie\": \"VIDANGE\",\r
 
     \  \"description\": \"Vidange moteur\",\r
 
-    \  \"cout\": 480.5\r
+    \  \"date_entretien\": \"2026-11-20\",\r
+
+    \  \"kilometrage\": 52300,\r
+
+    \  \"cout\": 850\r
 
     }"
 order: 2000

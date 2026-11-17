@@ -1,5 +1,5 @@
 $kind: http-request
-url: "{{base_url}}/entretiens/1"
+url: http://localhost:8001/api/vehicules/3
 method: GET
 headers:
   Accept: application/json

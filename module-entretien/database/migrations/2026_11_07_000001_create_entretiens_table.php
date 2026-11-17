@@ -11,11 +11,29 @@ return new class extends Migration
         Schema::create('entretiens', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('vehicule_id')->index();
-            $table->date('date_entretien');
-            $table->string('type_entretien');
+            $table->string('type');
+            $table->string('categorie');
             $table->text('description');
+            $table->date('date_entretien');
+            $table->unsignedInteger('kilometrage')->nullable();
             $table->decimal('cout', 10, 2)->default(0);
-            $table->string('statut')->default('planifie');
+            $table->string('statut')->default('PLANIFIE');
+
+            $table->dateTime('date_debut')->nullable();
+            $table->dateTime('date_fin')->nullable();
+
+            $table->date('date_prochaine_echeance')->nullable();
+            $table->unsignedInteger('km_prochaine_echeance')->nullable();
+
+            $table->timestamp('archive_at')->nullable();
+
+            // Utilisateur responsable de chaque action (sub du JWT)
+            $table->string('created_by')->nullable();
+            $table->string('started_by')->nullable();
+            $table->string('finished_by')->nullable();
+            $table->string('cancelled_by')->nullable();
+            $table->string('archived_by')->nullable();
+
             $table->timestamps();
         });
     }

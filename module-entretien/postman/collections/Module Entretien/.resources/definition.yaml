@@ -1,4 +1,19 @@
 $kind: collection
 description: ""
 variables:
-  base_url: http://localhost:8001/api
+  - key: base_url
+    value: http://localhost:8001/api
+  - key: token
+    value: ""
+  - key: entretien_id
+    value: ""
+  - key: json_web_token_0a56
+    secret: true
+    disabled: false
+  - key: json_web_token_0h01
+    secret: true
+    disabled: false
+auth:
+  type: bearer
+  credentials:
+    token: "{{json_web_token_0h01}}"
