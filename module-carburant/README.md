@@ -1,79 +1,100 @@
-# Gestion de flotte - module Carburant
+# Service Carburant
 
-Web service REST (FastAPI + SQLite) pour enregistrer les pleins de carburant
-des vehicules et suivre couts et consommation.
+Web service REST (FastAPI + MySQL) qui enregistre les pleins de carburant des
+vehicules et suit couts et consommation. Il fait partie du projet « Gestion de
+flotte de vehicules » (services Vehicule, Chauffeur, Entretien, Carburant).
 
 ## Lancer
 
+Avec le docker-compose de la racine du depot (base MySQL commune a tous les services).
+
+Sans Docker (developpement):
+
 ```bash
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 uvicorn main:app --reload
 ```
 
-Documentation interactive: http://localhost:8000/docs
+Documentation interactive: http://127.0.0.1:8000/docs
+
+## Variables d'environnement
+
+| Variable | Role | Defaut |
+|---|---|---|
+| `DATABASE_URL` | Base MySQL commune du projet | `mysql+pymysql://root:rootpassword@localhost:3306/flotte_db` |
+| `VEHICULE_SERVICE_URL` | Adresse du service Vehicule | `http://vehicule-service` |
+| `CHAUFFEUR_SERVICE_URL` | Adresse du service Chauffeur | `http://chauffeur-service:8000` |
+| `SERVICE_TIMEOUT` | Delai d'attente des appels (secondes) | `3` |
+| `SEUIL_SURCONSOMMATION` | Seuil d'alerte de surconsommation | `0.30` (30 %) |
+
+La table `carburants` est creee automatiquement au demarrage (avec plusieurs
+tentatives si MySQL n'est pas encore pret).
 
 ## Tests
 
 ```bash
-pytest -q
+python -m pytest -q
+python -m pytest test_unitaires_carburant.py --junitxml=rapport_tests_unitaires.xml
 ```
+
+Les tests utilisent SQLite en memoire et simulent les services Vehicule et
+Chauffeur (voir `conftest.py`): ni Docker ni MySQL ne sont necessaires.
 
 ## Structure
 
 | Fichier | Role |
 |---|---|
-| `main.py` | Cree l'application et branche les routeurs |
-| `database.py` | Connexion SQLite (variable `DATABASE_URL` pour changer de base) |
-| `models.py` | Tables `Vehicule`, `Chauffeur`, `Carburant` |
+| `main.py` | Cree l'application, les tables au demarrage, branche le routeur |
+| `database.py` | Connexion a la base (`DATABASE_URL`) |
+| `models.py` | Table `Carburant` (`vehicule_id` et `chauffeur_id` sont de simples identifiants) |
 | `schemas.py` | Validation des entrees/sorties (Pydantic) |
-| `routers/carburant.py` | **Le module carburant** (CRUD + statistiques) |
-| `routers/stubs.py` | Vehicule/Chauffeur minimaux pour tester. A supprimer quand les autres modules arrivent |
+| `clients.py` | Appels HTTP vers les services Vehicule et Chauffeur |
+| `anomalies.py` | Calcul de la consommation et alerte de surconsommation |
+| `routers/carburant.py` | Les endpoints du module |
+| `conftest.py` | Faux services Vehicule / Chauffeur pour les tests |
 
-## Endpoints Carburant
+## Endpoints
 
-| Methode | URL | Description |
-|---|---|---|
-| POST | `/carburants` | Enregistrer un plein |
-| GET | `/carburants` | Lister (filtres: `vehicule_id`, `chauffeur_id`, `type_carburant`, `date_debut`, `date_fin`, `skip`, `limit`) |
-| GET | `/carburants/{id}` | Lire un plein |
-| PATCH | `/carburants/{id}` | Modifier (le montant est recalcule) |
-| DELETE | `/carburants/{id}` | Supprimer |
-| GET | `/carburants/anomalies` | Pleins en surconsommation (filtres: `vehicule_id`, `date_debut`, `date_fin`) |
-| GET | `/carburants/stats/vehicules/{id}` | Cout total, distance, consommation L/100 km, cout/km |
+| Methode | URL | Description | Codes |
+|---|---|---|---|
+| POST | `/carburants` | Enregistrer un plein | 201, 400, 404, 422, 503 |
+| GET | `/carburants` | Lister (filtres: `vehicule_id`, `chauffeur_id`, `type_carburant`, `date_debut`, `date_fin`, `skip`, `limit`) | 200 |
+| GET | `/carburants/{id}` | Lire un plein | 200, 404 |
+| PATCH | `/carburants/{id}` | Modifier (montant et alertes recalcules) | 200, 400, 404, 422, 503 |
+| DELETE | `/carburants/{id}` | Supprimer | 204, 404 |
+| GET | `/carburants/anomalies` | Pleins en surconsommation (filtres: `vehicule_id`, `date_debut`, `date_fin`) | 200 |
+| GET | `/carburants/stats/vehicules/{id}` | Cout total, distance, consommation L/100 km, cout/km | 200, 404, 503 |
+
+## Communication avec les autres services
+
+- Avant d'enregistrer ou de modifier un plein, le service verifie par HTTP que
+  le vehicule existe (`GET /vehicules/{id}`) et, s'il est fourni, que le
+  chauffeur existe (`GET /api/chauffeurs/{id}`).
+- Introuvable: **404**. Service injoignable ou en erreur: **503**, rien n'est enregistre.
+- Les chemins sont definis en haut de `clients.py`.
 
 ## Regles metier
 
-- `montant_total = quantite_litres x prix_litre` (calcule par le serveur).
-- Le vehicule doit exister, le chauffeur est optionnel mais doit exister s'il est donne.
-- Le kilometrage ne peut pas reculer: il doit rester coherent avec les pleins
-  precedents et suivants du meme vehicule.
-- Consommation moyenne = litres des pleins suivants le premier / distance parcourue x 100.
+- `montant_total = quantite_litres x prix_litre` (calcule par le serveur, arrondi a 2 decimales).
+- RG-01: le kilometrage doit etre **strictement croissant** dans le temps pour un meme
+  vehicule (comparaison avec les pleins precedent et suivant). Sinon **400**.
+- Consommation = litres / distance depuis le plein precedent x 100 (pleins complets).
+- Les donnees invalides (quantite <= 0, type inconnu...) donnent **422**.
 
 ## Alerte de surconsommation
 
 Chaque plein recoit automatiquement `consommation_l_100km`, `anomalie` et
-`message_anomalie`. Un plein est marque anomalie si sa consommation depasse
-de plus de **30 %** la moyenne des consommations precedentes du vehicule
-(au moins 2 consommations connues). Exemple: un vehicule a 7 L/100 km qui
-passe a 14 -> alerte, visible via `GET /carburants/anomalies`.
+`message_anomalie`. Un plein est marque anomalie si sa consommation depasse de
+plus de **30 %** la moyenne des consommations precedentes du vehicule (au moins
+2 consommations connues). Exemple: un vehicule a 7 L/100 km qui passe a 14 -> alerte,
+visible via `GET /carburants/anomalies`.
 
-Le seuil se change sans modifier le code: `SEUIL_SURCONSOMMATION=0.25 uvicorn main:app`.
+Le seuil se change sans modifier le code: `SEUIL_SURCONSOMMATION=0.25`.
 Le calcul est refait pour tout le vehicule a chaque ajout, modification ou
 suppression, donc corriger une erreur de saisie retire l'alerte.
 
-## Exemple
+## Pas encore developpe
 
-```bash
-curl -X POST localhost:8000/vehicules -H "Content-Type: application/json" \
-  -d '{"immatriculation":"12345-A-6","marque":"Dacia","modele":"Logan"}'
-
-curl -X POST localhost:8000/carburants -H "Content-Type: application/json" \
-  -d '{"vehicule_id":1,"date_plein":"2026-10-17","quantite_litres":40,
-       "prix_litre":11.5,"kilometrage":10000,"type_carburant":"diesel"}'
-```
-
-## Integration avec l'equipe
-
-Les tables `vehicules` et `chauffeurs` de `models.py` sont minimales. Si vos
-collegues ont deja leurs modeles, gardez la cle etrangere `vehicule_id` /
-`chauffeur_id` de `Carburant` et remplacez simplement ces deux classes.
+- RG-02 (alerte capacite du reservoir): necessite ce champ dans le service Vehicule.
+- RG-03 (anti-doublon 15 minutes): necessite une date **et heure** sur le plein.
+- RG-06 et RG-07 (droits d'acces, lecture seule du chauffeur): necessitent le JWT partage.

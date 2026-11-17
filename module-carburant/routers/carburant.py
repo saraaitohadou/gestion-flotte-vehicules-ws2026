@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
-
+import clients  
 import models
 import schemas
 from anomalies import recalculer_vehicule
@@ -14,12 +14,10 @@ router = APIRouter(prefix="/carburants", tags=["Carburant"])
 
 # ---------- Verifications ----------
 
-def verifier_references(db: Session, vehicule_id: int, chauffeur_id: Optional[int]):
-    if not db.get(models.Vehicule, vehicule_id):
-        raise HTTPException(404, f"Vehicule {vehicule_id} introuvable")
-    if chauffeur_id is not None and not db.get(models.Chauffeur, chauffeur_id):
-        raise HTTPException(404, f"Chauffeur {chauffeur_id} introuvable")
-
+def verifier_references(vehicule_id: int, chauffeur_id: Optional[int]):
+    clients.verifier_vehicule(vehicule_id)
+    if chauffeur_id is not None:
+        clients.verifier_chauffeur(chauffeur_id)
 
 def verifier_kilometrage(
     db: Session,
@@ -28,7 +26,7 @@ def verifier_kilometrage(
     kilometrage: int,
     exclude_id: Optional[int] = None,
 ):
-    """Le compteur ne peut pas reculer dans le temps pour un meme vehicule."""
+    """RG-01: le kilometrage doit etre strictement croissant dans le temps pour un meme vehicule (400 sinon)."""
     base = db.query(models.Carburant).filter(models.Carburant.vehicule_id == vehicule_id)
     if exclude_id is not None:
         base = base.filter(models.Carburant.id != exclude_id)
@@ -43,16 +41,16 @@ def verifier_kilometrage(
         .order_by(models.Carburant.date_plein.asc(), models.Carburant.kilometrage.asc())
         .first()
     )
-    if precedent and kilometrage < precedent.kilometrage:
+    if precedent and kilometrage <= precedent.kilometrage:
         raise HTTPException(
-            422,
-            f"Kilometrage incoherent: {kilometrage} km est inferieur au plein du "
+            400,
+            f"Kilometrage incoherent: {kilometrage} km est inferieur ou egal au plein du "
             f"{precedent.date_plein} ({precedent.kilometrage} km)",
         )
-    if suivant and kilometrage > suivant.kilometrage:
+    if suivant and kilometrage >= suivant.kilometrage:
         raise HTTPException(
-            422,
-            f"Kilometrage incoherent: {kilometrage} km est superieur au plein du "
+            400,
+            f"Kilometrage incoherent: {kilometrage} km est superieur ou egal au plein du "
             f"{suivant.date_plein} ({suivant.kilometrage} km)",
         )
 
@@ -79,8 +77,7 @@ def stats_vehicule(
     La consommation exclut le premier plein de la periode: ces litres servent
     a rouler avant le premier releve, pas apres.
     """
-    if not db.get(models.Vehicule, vehicule_id):
-        raise HTTPException(404, f"Vehicule {vehicule_id} introuvable")
+    clients.verifier_vehicule(vehicule_id)
 
     q = db.query(models.Carburant).filter(models.Carburant.vehicule_id == vehicule_id)
     if date_debut:
@@ -135,7 +132,7 @@ def lister_anomalies(
 
 @router.post("", response_model=schemas.CarburantOut, status_code=status.HTTP_201_CREATED)
 def creer_plein(data: schemas.CarburantCreate, db: Session = Depends(get_db)):
-    verifier_references(db, data.vehicule_id, data.chauffeur_id)
+    verifier_references(data.vehicule_id, data.chauffeur_id)
     verifier_kilometrage(db, data.vehicule_id, data.date_plein, data.kilometrage)
 
     valeurs = data.model_dump()
@@ -206,7 +203,7 @@ def modifier_plein(
     date_plein = changes.get("date_plein", obj.date_plein)
     kilometrage = changes.get("kilometrage", obj.kilometrage)
 
-    verifier_references(db, vehicule_id, chauffeur_id)
+    verifier_references(vehicule_id, chauffeur_id)
     verifier_kilometrage(db, vehicule_id, date_plein, kilometrage, exclude_id=obj.id)
 
     ancien_vehicule_id = obj.vehicule_id

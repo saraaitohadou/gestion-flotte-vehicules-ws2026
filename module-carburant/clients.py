@@ -1,0 +1,33 @@
+"""Appels HTTP vers les services Vehicule et Chauffeur."""
+import os
+
+import httpx
+from fastapi import HTTPException
+
+VEHICULE_URL = os.getenv("VEHICULE_SERVICE_URL", "http://vehicule-service")
+CHAUFFEUR_URL = os.getenv("CHAUFFEUR_SERVICE_URL", "http://chauffeur-service:8000")
+TIMEOUT = float(os.getenv("SERVICE_TIMEOUT", "3"))
+
+# Routes reelles des autres modules (a ajuster si l'equipe les change)
+CHEMIN_VEHICULE = "/vehicules/{id}"
+CHEMIN_CHAUFFEUR = "/api/chauffeurs/{id}"
+
+
+def _verifier(base: str, chemin: str, ident: int, nom: str) -> None:
+    url = base + chemin.format(id=ident)
+    try:
+        reponse = httpx.get(url, timeout=TIMEOUT)
+    except httpx.HTTPError:
+        raise HTTPException(503, f"Service {nom} indisponible")
+    if reponse.status_code == 404:
+        raise HTTPException(404, f"{nom} {ident} introuvable")
+    if reponse.status_code >= 400:
+        raise HTTPException(503, f"Service {nom} a repondu {reponse.status_code}")
+
+
+def verifier_vehicule(vehicule_id: int) -> None:
+    _verifier(VEHICULE_URL, CHEMIN_VEHICULE, vehicule_id, "Vehicule")
+
+
+def verifier_chauffeur(chauffeur_id: int) -> None:
+    _verifier(CHAUFFEUR_URL, CHEMIN_CHAUFFEUR, chauffeur_id, "Chauffeur")
