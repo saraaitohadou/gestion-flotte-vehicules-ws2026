@@ -2,7 +2,7 @@ services:
   entretien-app:
     build: .
     restart: on-failure
-    ports: ["8001:8001"]
+    ports: ["8004:8004"]
     volumes: [".:/var/www"]
     networks: [default, flotte-net]
     environment:
@@ -20,7 +20,6 @@ services:
       DB_PASSWORD: secret
       VEHICULE_CHECK: "true"
       VEHICULE_SERVICE_URL: "http://vehicule-mock:8002"
-      JWT_SECRET: "flotte-ws2026-secret-partage-a-changer"
     depends_on:
       entretien-db:
         condition: service_healthy

@@ -1,6 +1,6 @@
 # Service Entretien
 
-Microservice de gestion des entretiens de la flotte (Laravel, MySQL, JWT).
+Microservice de gestion des entretiens de la flotte (Laravel, MySQL).
 
 ## Démarrage
 
@@ -12,27 +12,12 @@ docker compose exec entretien-app php artisan migrate --force
 
 | Composant | URL / port |
 |---|---|
-| API entretien | http://localhost:8001/api |
+| API entretien | http://localhost:8004/api |
 | Mock véhicule | http://localhost:8002 |
 | MySQL | localhost:3307 |
 | Contrat OpenAPI | `public/openapi.yaml` |
 
-Santé : `GET http://localhost:8001/api/health`
-
-## Authentification
-
-JWT (Bearer, HS256), secret partagé `JWT_SECRET`. Rôles :
-
-- **ADMINISTRATEUR** : tout, dont l'archivage (DELETE).
-- **GESTIONNAIRE** : créer, modifier, démarrer, terminer, annuler.
-- **CHAUFFEUR** : lecture des entretiens de son véhicule uniquement.
-
-Générer un token de développement :
-
-```powershell
-docker compose exec -T entretien-app php artisan entretien:token gestionnaire
-docker compose exec -T entretien-app php artisan entretien:token administrateur
-```
+Santé : `GET http://localhost:8004/api/health`
 
 ## Règles métier
 
@@ -62,11 +47,11 @@ docker compose exec -e DB_CONNECTION=sqlite -e DB_DATABASE=:memory: entretien-ap
 docker compose exec -e DB_CONNECTION=sqlite -e DB_DATABASE=:memory: entretien-app php artisan test --testsuite=Unit
 ```
 
-Attendu : 25 passed (10 unitaires + 15 Feature). Les tests Feature simulent le service véhicule (`Http::fake`).
+Attendu : 30 passed (10 unitaires + 20 Feature). Les tests Feature simulent le service véhicule (`Http::fake`).
 
 ## Postman
 
-Collection : `postman/collections/Module Entretien/` (variables `base_url`, `token`, `entretien_id`). Mettre le token gestionnaire ou administrateur dans `token`.
+Collection : `postman/collections/Module Entretien/` (variables `base_url`, `entretien_id`).
 
 ## Intégration avec le service Véhicule
 

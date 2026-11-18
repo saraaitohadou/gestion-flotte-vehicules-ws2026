@@ -3,9 +3,7 @@ info:
   title: API Service Entretien
   version: 1.0.0
   description: |
-    Microservice Entretien de la gestion de flotte. Authentification JWT (Bearer).
-    Roles : ADMINISTRATEUR (tout), GESTIONNAIRE (creer, modifier, demarrer, terminer, annuler),
-    CHAUFFEUR (lecture des entretiens et alertes de son vehicule).
+    Microservice Entretien de la gestion de flotte. Pas d'authentification.
 
     Succes : {"data": ...}. Erreur : {"error": {"code", "message", "details"}}.
 
@@ -15,9 +13,7 @@ info:
     ENTRETIEN_DEJA_EN_COURS (409), ENTRETIEN_NON_MODIFIABLE (409), ENTRETIEN_ARCHIVE (409),
     ARCHIVAGE_INTERDIT (409), DEJA_ARCHIVE (409), VEHICULE_SERVICE_INDISPONIBLE (503).
 servers:
-  - url: http://localhost:8001/api
-security:
-  - bearerAuth: []
+  - url: http://localhost:8004/api
 tags:
   - name: Entretiens
   - name: Alertes
@@ -41,11 +37,9 @@ paths:
         - { name: per_page, in: query, schema: { type: integer, maximum: 100, default: 15 } }
       responses:
         '200': { description: Liste paginee }
-        '401': { $ref: '#/components/responses/Erreur' }
-        '403': { $ref: '#/components/responses/Erreur' }
     post:
       tags: [Entretiens]
-      summary: Creer un entretien (statut PLANIFIE) - GESTIONNAIRE
+      summary: Creer un entretien (statut PLANIFIE)
       requestBody:
         required: true
         content:
@@ -57,8 +51,6 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/EntretienReponse' }
-        '401': { $ref: '#/components/responses/Erreur' }
-        '403': { $ref: '#/components/responses/Erreur' }
         '404': { $ref: '#/components/responses/Erreur' }
         '422': { $ref: '#/components/responses/Erreur' }
         '503': { $ref: '#/components/responses/Erreur' }
@@ -74,12 +66,10 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/EntretienReponse' }
-        '401': { $ref: '#/components/responses/Erreur' }
-        '403': { $ref: '#/components/responses/Erreur' }
         '404': { $ref: '#/components/responses/Erreur' }
     put:
       tags: [Entretiens]
-      summary: Modifier un entretien (PLANIFIE ou EN_COURS, non archive) - GESTIONNAIRE
+      summary: Modifier un entretien (PLANIFIE ou EN_COURS, non archive)
       requestBody:
         content:
           application/json:
@@ -90,28 +80,24 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/EntretienReponse' }
-        '401': { $ref: '#/components/responses/Erreur' }
-        '403': { $ref: '#/components/responses/Erreur' }
         '404': { $ref: '#/components/responses/Erreur' }
         '409': { $ref: '#/components/responses/Erreur' }
         '422': { $ref: '#/components/responses/Erreur' }
     delete:
       tags: [Entretiens]
-      summary: Archiver un entretien TERMINE ou ANNULE (jamais de suppression physique) - ADMINISTRATEUR
+      summary: Archiver un entretien TERMINE ou ANNULE (jamais de suppression physique)
       responses:
         '200':
           description: Archive
           content:
             application/json:
               schema: { $ref: '#/components/schemas/EntretienReponse' }
-        '401': { $ref: '#/components/responses/Erreur' }
-        '403': { $ref: '#/components/responses/Erreur' }
         '404': { $ref: '#/components/responses/Erreur' }
         '409': { $ref: '#/components/responses/Erreur' }
   /entretiens/{id}/demarrer:
     patch:
       tags: [Entretiens]
-      summary: PLANIFIE vers EN_COURS (le vehicule passe EN_MAINTENANCE) - GESTIONNAIRE
+      summary: PLANIFIE vers EN_COURS (le vehicule passe EN_MAINTENANCE)
       parameters:
         - { name: id, in: path, required: true, schema: { type: integer } }
       requestBody:
@@ -127,8 +113,6 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/EntretienReponse' }
-        '401': { $ref: '#/components/responses/Erreur' }
-        '403': { $ref: '#/components/responses/Erreur' }
         '404': { $ref: '#/components/responses/Erreur' }
         '409': { $ref: '#/components/responses/Erreur' }
         '422': { $ref: '#/components/responses/Erreur' }
@@ -136,7 +120,7 @@ paths:
   /entretiens/{id}/terminer:
     patch:
       tags: [Entretiens]
-      summary: EN_COURS vers TERMINE (vehicule DISPONIBLE, km mis a jour, echeance recalculee) - GESTIONNAIRE
+      summary: EN_COURS vers TERMINE (vehicule DISPONIBLE, km mis a jour, echeance recalculee)
       parameters:
         - { name: id, in: path, required: true, schema: { type: integer } }
       requestBody:
@@ -154,8 +138,6 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/EntretienReponse' }
-        '401': { $ref: '#/components/responses/Erreur' }
-        '403': { $ref: '#/components/responses/Erreur' }
         '404': { $ref: '#/components/responses/Erreur' }
         '409': { $ref: '#/components/responses/Erreur' }
         '422': { $ref: '#/components/responses/Erreur' }
@@ -163,7 +145,7 @@ paths:
   /entretiens/{id}/annuler:
     patch:
       tags: [Entretiens]
-      summary: "PLANIFIE ou EN_COURS vers ANNULE (EN_COURS: le vehicule repasse DISPONIBLE) - GESTIONNAIRE"
+      summary: "PLANIFIE ou EN_COURS vers ANNULE (EN_COURS: le vehicule repasse DISPONIBLE)"
       parameters:
         - { name: id, in: path, required: true, schema: { type: integer } }
       responses:
@@ -172,8 +154,6 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/EntretienReponse' }
-        '401': { $ref: '#/components/responses/Erreur' }
-        '403': { $ref: '#/components/responses/Erreur' }
         '404': { $ref: '#/components/responses/Erreur' }
         '409': { $ref: '#/components/responses/Erreur' }
         '503': { $ref: '#/components/responses/Erreur' }
@@ -185,8 +165,6 @@ paths:
         - { name: vehiculeId, in: path, required: true, schema: { type: integer } }
       responses:
         '200': { description: OK }
-        '401': { $ref: '#/components/responses/Erreur' }
-        '403': { $ref: '#/components/responses/Erreur' }
   /alertes:
     get:
       tags: [Alertes]
@@ -198,11 +176,7 @@ paths:
         - { name: per_page, in: query, schema: { type: integer, maximum: 100, default: 15 } }
       responses:
         '200': { description: Liste paginee }
-        '401': { $ref: '#/components/responses/Erreur' }
-        '403': { $ref: '#/components/responses/Erreur' }
 components:
-  securitySchemes:
-    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
   responses:
     Erreur:
       description: Erreur JSON structuree
