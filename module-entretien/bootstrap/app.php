@@ -15,10 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->alias([
-            'jwt'  => \App\Http\Middleware\JwtAuthenticate::class,
-            'role' => \App\Http\Middleware\RequireRole::class,
-        ]);
+        $middleware->api(prepend: [\App\Http\Middleware\PrettyJson::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(fn (Request $request) => $request->is('api/*'));

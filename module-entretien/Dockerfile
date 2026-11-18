@@ -5,5 +5,5 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 WORKDIR /var/www
 COPY . .
 RUN cp .env.example .env && composer install --no-interaction
-EXPOSE 8001
-CMD php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=8001
+EXPOSE 8004
+CMD php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=8004
