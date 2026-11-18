@@ -2,10 +2,18 @@ openapi: 3.0.3
 info:
   title: API Service Entretien
   version: 1.0.0
-  description: >
+  description: |
     Microservice Entretien de la gestion de flotte. Authentification JWT (Bearer).
-    Rôles : ADMINISTRATEUR (tout), GESTIONNAIRE (créer, modifier, démarrer, clôturer, annuler),
-    CHAUFFEUR (lecture des entretiens de son véhicule).
+    Roles : ADMINISTRATEUR (tout), GESTIONNAIRE (creer, modifier, demarrer, terminer, annuler),
+    CHAUFFEUR (lecture des entretiens et alertes de son vehicule).
+
+    Succes : {"data": ...}. Erreur : {"error": {"code", "message", "details"}}.
+
+    Codes d'erreur : NON_AUTHENTIFIE (401), ACCES_REFUSE (403), RESSOURCE_INTROUVABLE (404),
+    VEHICULE_INTROUVABLE (404), VEHICULE_INACTIF (422), KILOMETRAGE_INVALIDE (422),
+    VALIDATION_ERREUR (422), DATE_FIN_INVALIDE (422), TRANSITION_INTERDITE (409),
+    ENTRETIEN_DEJA_EN_COURS (409), ENTRETIEN_NON_MODIFIABLE (409), ENTRETIEN_ARCHIVE (409),
+    ARCHIVAGE_INTERDIT (409), DEJA_ARCHIVE (409), VEHICULE_SERVICE_INDISPONIBLE (503).
 servers:
   - url: http://localhost:8001/api
 security:
@@ -16,7 +24,7 @@ tags:
 paths:
   /health:
     get:
-      summary: État du service
+      summary: Etat du service
       security: []
       responses:
         '200': { description: OK }
@@ -30,21 +38,28 @@ paths:
         - { name: type, in: query, schema: { $ref: '#/components/schemas/Type' } }
         - { name: categorie, in: query, schema: { type: string } }
         - { name: inclure_archives, in: query, schema: { type: boolean } }
-        - { name: per_page, in: query, schema: { type: integer, maximum: 100 } }
+        - { name: per_page, in: query, schema: { type: integer, maximum: 100, default: 15 } }
       responses:
-        '200': { description: Liste paginée }
+        '200': { description: Liste paginee }
         '401': { $ref: '#/components/responses/Erreur' }
         '403': { $ref: '#/components/responses/Erreur' }
     post:
       tags: [Entretiens]
-      summary: Créer un entretien (statut PLANIFIE)
+      summary: Creer un entretien (statut PLANIFIE) - GESTIONNAIRE
       requestBody:
         required: true
         content:
           application/json:
             schema: { $ref: '#/components/schemas/EntretienInput' }
       responses:
-        '201': { description: Créé }
+        '201':
+          description: Cree
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EntretienReponse' }
+        '401': { $ref: '#/components/responses/Erreur' }
+        '403': { $ref: '#/components/responses/Erreur' }
+        '404': { $ref: '#/components/responses/Erreur' }
         '422': { $ref: '#/components/responses/Erreur' }
         '503': { $ref: '#/components/responses/Erreur' }
   /entretiens/{id}:
@@ -52,41 +67,76 @@ paths:
       - { name: id, in: path, required: true, schema: { type: integer } }
     get:
       tags: [Entretiens]
-      summary: Détail d'un entretien
+      summary: Detail d'un entretien
       responses:
-        '200': { description: OK }
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EntretienReponse' }
+        '401': { $ref: '#/components/responses/Erreur' }
+        '403': { $ref: '#/components/responses/Erreur' }
         '404': { $ref: '#/components/responses/Erreur' }
     put:
       tags: [Entretiens]
-      summary: Modifier un entretien (PLANIFIE ou EN_COURS uniquement)
+      summary: Modifier un entretien (PLANIFIE ou EN_COURS, non archive) - GESTIONNAIRE
       requestBody:
         content:
           application/json:
             schema: { $ref: '#/components/schemas/EntretienInput' }
       responses:
-        '200': { description: OK }
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EntretienReponse' }
+        '401': { $ref: '#/components/responses/Erreur' }
+        '403': { $ref: '#/components/responses/Erreur' }
+        '404': { $ref: '#/components/responses/Erreur' }
         '409': { $ref: '#/components/responses/Erreur' }
         '422': { $ref: '#/components/responses/Erreur' }
     delete:
       tags: [Entretiens]
-      summary: Archiver un entretien (jamais de suppression physique) - ADMINISTRATEUR
+      summary: Archiver un entretien TERMINE ou ANNULE (jamais de suppression physique) - ADMINISTRATEUR
       responses:
-        '200': { description: Archivé }
+        '200':
+          description: Archive
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EntretienReponse' }
+        '401': { $ref: '#/components/responses/Erreur' }
+        '403': { $ref: '#/components/responses/Erreur' }
+        '404': { $ref: '#/components/responses/Erreur' }
         '409': { $ref: '#/components/responses/Erreur' }
   /entretiens/{id}/demarrer:
     patch:
       tags: [Entretiens]
-      summary: PLANIFIE → EN_COURS (le véhicule passe EN_MAINTENANCE)
+      summary: PLANIFIE vers EN_COURS (le vehicule passe EN_MAINTENANCE) - GESTIONNAIRE
       parameters:
         - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                date_debut: { type: string, format: date-time, description: 'Optionnel, now() par defaut' }
       responses:
-        '200': { description: OK }
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EntretienReponse' }
+        '401': { $ref: '#/components/responses/Erreur' }
+        '403': { $ref: '#/components/responses/Erreur' }
+        '404': { $ref: '#/components/responses/Erreur' }
         '409': { $ref: '#/components/responses/Erreur' }
+        '422': { $ref: '#/components/responses/Erreur' }
         '503': { $ref: '#/components/responses/Erreur' }
   /entretiens/{id}/terminer:
     patch:
       tags: [Entretiens]
-      summary: EN_COURS → TERMINE (véhicule DISPONIBLE, km mis à jour, échéance recalculée)
+      summary: EN_COURS vers TERMINE (vehicule DISPONIBLE, km mis a jour, echeance recalculee) - GESTIONNAIRE
       parameters:
         - { name: id, in: path, required: true, schema: { type: integer } }
       requestBody:
@@ -99,44 +149,63 @@ paths:
                 kilometrage: { type: integer, example: 52300 }
                 cout: { type: number, example: 950.5 }
       responses:
-        '200': { description: OK }
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EntretienReponse' }
+        '401': { $ref: '#/components/responses/Erreur' }
+        '403': { $ref: '#/components/responses/Erreur' }
+        '404': { $ref: '#/components/responses/Erreur' }
         '409': { $ref: '#/components/responses/Erreur' }
         '422': { $ref: '#/components/responses/Erreur' }
         '503': { $ref: '#/components/responses/Erreur' }
   /entretiens/{id}/annuler:
     patch:
       tags: [Entretiens]
-      summary: PLANIFIE|EN_COURS → ANNULE
+      summary: "PLANIFIE ou EN_COURS vers ANNULE (EN_COURS: le vehicule repasse DISPONIBLE) - GESTIONNAIRE"
       parameters:
         - { name: id, in: path, required: true, schema: { type: integer } }
       responses:
-        '200': { description: OK }
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EntretienReponse' }
+        '401': { $ref: '#/components/responses/Erreur' }
+        '403': { $ref: '#/components/responses/Erreur' }
+        '404': { $ref: '#/components/responses/Erreur' }
         '409': { $ref: '#/components/responses/Erreur' }
+        '503': { $ref: '#/components/responses/Erreur' }
   /vehicules/{vehiculeId}/entretiens:
     get:
       tags: [Entretiens]
-      summary: Historique complet (archives incluses) d'un véhicule
+      summary: Historique complet (archives incluses) d'un vehicule
       parameters:
         - { name: vehiculeId, in: path, required: true, schema: { type: integer } }
       responses:
         '200': { description: OK }
+        '401': { $ref: '#/components/responses/Erreur' }
         '403': { $ref: '#/components/responses/Erreur' }
   /alertes:
     get:
       tags: [Alertes]
-      summary: Alertes de maintenance (proche / en retard)
+      summary: Alertes de maintenance (PROCHE / EN_RETARD), non resolues par defaut
       parameters:
         - { name: vehicule_id, in: query, schema: { type: integer } }
         - { name: type, in: query, schema: { type: string, enum: [PROCHE, EN_RETARD] } }
         - { name: inclure_resolues, in: query, schema: { type: boolean } }
+        - { name: per_page, in: query, schema: { type: integer, maximum: 100, default: 15 } }
       responses:
-        '200': { description: OK }
+        '200': { description: Liste paginee }
+        '401': { $ref: '#/components/responses/Erreur' }
+        '403': { $ref: '#/components/responses/Erreur' }
 components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
   responses:
     Erreur:
-      description: Erreur JSON structurée
+      description: Erreur JSON structuree
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Erreur' }
@@ -150,10 +219,31 @@ components:
         vehicule_id: { type: integer, example: 1 }
         type: { $ref: '#/components/schemas/Type' }
         categorie: { type: string, example: VIDANGE, description: "PREVENTIF: VIDANGE, PNEUS, FREINS, VISITE_TECHNIQUE - CORRECTIF: PANNE, REPARATION" }
-        description: { type: string, example: Vidange moteur + filtre à huile }
+        description: { type: string, example: Vidange moteur + filtre a huile }
         date_entretien: { type: string, format: date, example: '2026-11-10' }
         kilometrage: { type: integer, example: 52000 }
         cout: { type: number, example: 850 }
+    Entretien:
+      type: object
+      properties:
+        id: { type: integer }
+        vehicule_id: { type: integer }
+        type: { $ref: '#/components/schemas/Type' }
+        categorie: { type: string }
+        description: { type: string }
+        date_entretien: { type: string, format: date }
+        kilometrage: { type: integer }
+        cout: { type: number }
+        statut: { $ref: '#/components/schemas/Statut' }
+        prochaine_echeance:
+          type: object
+          properties:
+            date: { type: string, format: date, nullable: true }
+            kilometrage: { type: integer, nullable: true }
+    EntretienReponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/Entretien' }
     Erreur:
       type: object
       properties:

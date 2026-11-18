@@ -70,7 +70,7 @@ Collection : `postman/collections/Module Entretien/` (variables `base_url`, `tok
 
 ## Intégration avec le service Véhicule
 
-Par défaut, `VEHICULE_SERVICE_URL=http://vehicule-mock:8002` : un mock Node (`docker/mock-vehicule`) simule le service Véhicule (véhicule 1 = DISPONIBLE à 52 300 km, 3 = HORS_SERVICE, 4 = ARCHIVE, 99 = introuvable).
+Par défaut, `VEHICULE_SERVICE_URL=http://vehicule-mock:8002` : un mock Node (`docker/mock-vehicule`) simule le service Véhicule (véhicule 1 = DISPONIBLE à 45 000 km, 3 = HORS_SERVICE, 4 = ARCHIVE, 5 = DISPONIBLE (10 000 km), 99 = introuvable).
 
 Le service est aussi attaché au réseau Docker externe `flotte-net`. Pour utiliser le vrai service Véhicule :
 
