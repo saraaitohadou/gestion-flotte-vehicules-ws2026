@@ -19,14 +19,15 @@ class VehiculeClient
 
     private function url(string $path): string
     {
-        return rtrim(config('vehicule.url'), '/') . $path;
+        $prefix = trim((string) config('vehicule.prefix', '/api'), '/');
+        return rtrim(config('vehicule.url'), '/') . ($prefix !== '' ? '/' . $prefix : '') . $path;
     }
 
     /** Infos du vehicule (statut, kilometrage...). Leve BusinessException si introuvable ou injoignable. */
     public function find(int $id): array
     {
         try {
-            $response = $this->http()->get($this->url("/api/vehicules/{$id}"));
+            $response = $this->http()->get($this->url("/vehicules/{$id}"));
         } catch (Throwable) {
             throw new BusinessException('Service Vehicule injoignable.', 503, 'VEHICULE_SERVICE_INDISPONIBLE');
         }
@@ -57,12 +58,12 @@ class VehiculeClient
 
     public function changerStatut(int $id, string $statut): void
     {
-        $this->patch("/api/vehicules/{$id}/statut", ['statut' => $statut]);
+        $this->patch("/vehicules/{$id}/statut", ['statut' => $statut]);
     }
 
     public function changerKilometrage(int $id, int $kilometrage): void
     {
-        $this->patch("/api/vehicules/{$id}/kilometrage", ['kilometrage' => $kilometrage]);
+        $this->patch("/vehicules/{$id}/kilometrage", ['kilometrage' => $kilometrage]);
     }
 
     private function patch(string $path, array $data): void
@@ -74,7 +75,9 @@ class VehiculeClient
         }
 
         if (! $response->successful()) {
-            throw new BusinessException('Mise a jour du vehicule refusee.', 503, 'VEHICULE_SERVICE_INDISPONIBLE');
+            throw $response->clientError()
+                ? new BusinessException('Mise a jour du vehicule refusee.', 409, 'VEHICULE_MISE_A_JOUR_REFUSEE')
+                : new BusinessException('Service Vehicule indisponible.', 503, 'VEHICULE_SERVICE_INDISPONIBLE');
         }
     }
 
