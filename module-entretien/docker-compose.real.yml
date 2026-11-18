@@ -1,0 +1,7 @@
+services:
+  entretien-app:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      VEHICULE_SERVICE_URL: "http://host.docker.internal:8090"
+      VEHICULE_API_PREFIX: ""
