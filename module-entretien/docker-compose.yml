@@ -24,6 +24,34 @@ services:
       entretien-db:
         condition: service_healthy
 
+  entretien-scheduler:
+    build: .
+    restart: on-failure
+    command: php artisan schedule:work
+    volumes: [".:/var/www"]
+    networks: [default, flotte-net]
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      APP_KEY: "base64:FWipJPECcyWm1zn77FfVKGRcEjNaqv9A+exl2KyyGik="
+      CACHE_STORE: file
+      SESSION_DRIVER: file
+      QUEUE_CONNECTION: sync
+      DB_CONNECTION: mysql
+      DB_HOST: entretien-db
+      DB_PORT: 3306
+      DB_DATABASE: entretien_db
+      DB_USERNAME: root
+      DB_PASSWORD: secret
+      VEHICULE_CHECK: "true"
+      VEHICULE_SERVICE_URL: "http://vehicule-mock:8002"
+    depends_on:
+      entretien-db:
+        condition: service_healthy
+
+
+
+
   entretien-db:
     image: mysql:8.0
     networks: [default]
