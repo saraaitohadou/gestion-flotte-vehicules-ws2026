@@ -7,7 +7,6 @@ use App\Enums\TypeEntretien;
 use App\Models\Alerte;
 use App\Models\Entretien;
 use App\Support\AuthUser;
-use App\Support\JwtService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
