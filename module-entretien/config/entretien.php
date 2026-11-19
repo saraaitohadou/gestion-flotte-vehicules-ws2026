@@ -4,13 +4,8 @@ return [
 
     // Service Véhicule (appels REST inter-services)
     'vehicule_service' => [
-        'url'     => env('VEHICULE_SERVICE_URL', 'http://vehicule-service:8001'),
+        'url'     => env('VEHICULE_SERVICE_URL', 'http://vehicule-mock:8002'),
         'timeout' => (int) env('VEHICULE_SERVICE_TIMEOUT', 3),
-    ],
-
-    // JWT partagé (HS256)
-    'jwt' => [
-        'secret' => env('JWT_SECRET'),
     ],
 
     // Seuils d'alerte (règle : 15 jours ou 500 km avant l'échéance)

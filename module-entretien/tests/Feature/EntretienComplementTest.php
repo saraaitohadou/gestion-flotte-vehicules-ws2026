@@ -8,7 +8,6 @@ use App\Models\Alerte;
 use App\Models\Entretien;
 use App\Services\EcheanceService;
 use App\Support\AuthUser;
-use App\Support\JwtService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -54,8 +53,6 @@ class EntretienComplementTest extends TestCase
     {
         return $this->entretien(array_merge(['statut' => StatutEntretien::Termine, 'date_fin' => now()], $override));
     }
-
-    // ---------- JWT ----------
 
 
 
