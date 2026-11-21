@@ -23,7 +23,7 @@ class EntretienApiTest extends TestCase
         if ($vehicule) {
             $claims['vehicule_id'] = $vehicule;
         }
-        return [];
+        return $this->tokenHeaders($role, $vehicule);
     }
 
     private function fakeVehicule(string $statut = 'DISPONIBLE', int $km = 50000, int $id = 1): void
