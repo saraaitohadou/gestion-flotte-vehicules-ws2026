@@ -14,7 +14,7 @@ class VehiculeClient
 
     private function http(): PendingRequest
     {
-        return Http::timeout((int) config('entretien.vehicule_service.timeout', 3))->acceptJson();
+        return Http::timeout((int) config('entretien.vehicule_service.timeout', 3))->acceptJson()->withHeaders(['X-API-Key' => (string) config('vehicule.api_key', '')]);
     }
 
     private function url(string $path): string
