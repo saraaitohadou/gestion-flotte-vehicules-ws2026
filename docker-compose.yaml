@@ -1,3 +1,27 @@
+x-auth-env: &auth-env
+  JWT_SECRET: ${JWT_SECRET}
+  SERVICE_API_KEY: ${SERVICE_API_KEY}
+
+services:
+  # ---------- Base de données MySQL unique partagée ----------
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: flotte_db
+    volumes:
+      - flotte_data:/var/lib/mysql
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "3306:3306"
+    networks: [flotte-net]
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
 
   # ---------- Chauffeur (FastAPI) : http://chauffeur-service:8000 ----------
   chauffeur-service:
@@ -15,6 +39,10 @@
     depends_on:
       db:
         condition: service_healthy
-      vehicule-service:
-        condition: service_started
 
+networks:
+  flotte-net:
+    driver: bridge
+
+volumes:
+  flotte_data:
