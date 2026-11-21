@@ -65,6 +65,9 @@ async function call(path, { method = "GET", body, params, secured = true } = {})
 export const api = {
   login: (username, password) => call("/auth/login", { method: "POST", body: { username, password }, secured: false }),
 
+  // Vehicules
+  vehicules: () => call("/vehicules"),
+
   // Entretiens
   list: (params = {}) => call("/entretiens", { params }),
   get: (id) => call(`/entretiens/${id}`),
