@@ -99,6 +99,11 @@ def creer_chauffeur(data: schemas.ChauffeurCreate, db: Session = Depends(get_db)
                     "message": "Le CIN ou le numéro de permis existe déjà."},
         )
     db.refresh(chauffeur)
+    if chauffeur.vehicule_id:
+        try:
+            setattr(chauffeur, "vehicule", clients.obtenir_vehicule(chauffeur.vehicule_id))
+        except Exception:
+            pass
     return chauffeur
 
 
@@ -124,6 +129,11 @@ def modifier_chauffeur(id_chauffeur: int, data: schemas.ChauffeurUpdate,
                     "message": "Le CIN ou le numéro de permis existe déjà."},
         )
     db.refresh(chauffeur)
+    if chauffeur.vehicule_id:
+        try:
+            setattr(chauffeur, "vehicule", clients.obtenir_vehicule(chauffeur.vehicule_id))
+        except Exception:
+            pass
     return chauffeur
 
 @router.patch("/{id_chauffeur}/statut", response_model=schemas.ChauffeurOut)
@@ -182,6 +192,12 @@ def reactiver_chauffeur(id_chauffeur: int,
     return chauffeur
 
 
+@router.get("/vehicules-disponibles")
+def vehicules_disponibles():
+    """Récupère la liste des véhicules depuis vehicule-service pour attribution."""
+    return clients.lister_vehicules()
+
+
 @router.get("", response_model=list[schemas.ChauffeurOut])
 def lister_chauffeurs(
     statut: Optional[models.StatutChauffeur] = None,
@@ -197,7 +213,19 @@ def lister_chauffeurs(
         q = q.filter(models.Chauffeur.statut == statut)
     if categorie_permis is not None:
         q = q.filter(models.Chauffeur.categorie_permis == categorie_permis.strip().upper())
-    return q.order_by(models.Chauffeur.id_chauffeur).offset(skip).limit(limit).all()
+    chauffeurs = q.order_by(models.Chauffeur.id_chauffeur).offset(skip).limit(limit).all()
+
+    # Enrichissement avec les données du véhicule si disponible (fallback propre)
+    try:
+        vehicules = clients.lister_vehicules()
+        v_map = {v.get("id"): v for v in vehicules if isinstance(v, dict)}
+        for c in chauffeurs:
+            if c.vehicule_id:
+                setattr(c, "vehicule", v_map.get(c.vehicule_id))
+    except Exception:
+        pass
+
+    return chauffeurs
 
 
 @router.get("/disponibles", response_model=list[schemas.ChauffeurOut])
@@ -232,7 +260,13 @@ def permis_expires(jours: int = Query(30, ge=0, le=365), db: Session = Depends(g
 
 @router.get("/{id_chauffeur}", response_model=schemas.ChauffeurOut)
 def lire_chauffeur(id_chauffeur: int, db: Session = Depends(get_db)):
-    return get_chauffeur_actif_or_404(db, id_chauffeur)
+    chauffeur = get_chauffeur_actif_or_404(db, id_chauffeur)
+    if chauffeur.vehicule_id:
+        try:
+            setattr(chauffeur, "vehicule", clients.obtenir_vehicule(chauffeur.vehicule_id))
+        except Exception:
+            pass
+    return chauffeur
 
 @router.get("/{id_chauffeur}/compatibilite", response_model=schemas.CompatibiliteOut)
 def verifier_compatibilite(id_chauffeur: int, categorie_vehicule: str,

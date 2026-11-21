@@ -72,6 +72,26 @@ def obtenir_vehicule(vehicule_id: int) -> Optional[Dict[str, Any]]:
         return None
 
 
+def lister_vehicules() -> List[Dict[str, Any]]:
+    """GET /vehicules : récupère la liste de tous les véhicules (avec fallback en liste vide)."""
+    try:
+        r = _appeler("GET", VEHICULE_URL, "/vehicules")
+        if r.status_code == 200:
+            data = r.json()
+            if isinstance(data, list):
+                return data
+            if isinstance(data, dict) and "data" in data:
+                return data["data"]
+        return []
+    except Exception:
+        return []
+
+
+def lister_vehicules_disponibles() -> List[Dict[str, Any]]:
+    """Retourne la liste des véhicules enregistrés auprès de vehicule-service."""
+    return lister_vehicules()
+
+
 # ==========================================
 # Service Carburant
 # ==========================================

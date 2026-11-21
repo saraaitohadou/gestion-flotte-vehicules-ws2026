@@ -14,6 +14,13 @@ from database import get_db
 router = APIRouter(prefix="/espace-chauffeur", tags=["Espace Chauffeur"])
 
 
+@router.get("/vehicules")
+@router.get("/vehicules-disponibles")
+def lister_vehicules_service():
+    """Récupère les véhicules auprès de vehicule-service."""
+    return clients.lister_vehicules()
+
+
 def _construire_profil(chauffeur: models.Chauffeur) -> se.ChauffeurMeOut:
     aujourdhui = date.today()
     expire = chauffeur.date_expiration_permis <= aujourdhui

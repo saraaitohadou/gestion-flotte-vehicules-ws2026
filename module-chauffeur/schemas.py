@@ -47,6 +47,7 @@ class ChauffeurCreate(BaseModel):
     numero_permis: str
     categorie_permis: str
     date_expiration_permis: date
+    vehicule_id: Optional[int] = None
 
     @field_validator("cin")
     @classmethod
@@ -77,6 +78,7 @@ class ChauffeurUpdate(BaseModel):
     numero_permis: Optional[str] = None
     categorie_permis: Optional[str] = None
     date_expiration_permis: Optional[date] = None
+    vehicule_id: Optional[int] = None
 
     @field_validator("cin")
     @classmethod
@@ -144,3 +146,4 @@ class ChauffeurOut(BaseModel):
     created_at: datetime
     updated_at: datetime
     vehicule_id: Optional[int] = None
+    vehicule: Optional[dict] = None

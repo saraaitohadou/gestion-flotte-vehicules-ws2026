@@ -97,10 +97,20 @@ export default function ChauffeurProfile() {
 
         <div className="stack">
           <section className="panel">
-            <h2>Statut</h2>
+            <h2>Statut & Véhicule</h2>
             <p><StatusBadge statut={c.statut} /></p>
+            <div style={{ marginTop: "8px", fontSize: "0.95rem" }}>
+              <strong>Véhicule assigné : </strong>
+              {c.vehicule_id ? (
+                <span className="badge badge-info" style={{ marginLeft: "6px" }}>
+                  #{c.vehicule_id} {c.vehicule ? `— ${c.vehicule.marque || ""} ${c.vehicule.modele || ""} (${c.vehicule.immatriculation || ""})` : ""}
+                </span>
+              ) : (
+                <span className="muted">Aucun</span>
+              )}
+            </div>
             {TRANSITIONS[c.statut]?.length > 0 && (
-              <div className="actions">
+              <div className="actions" style={{ marginTop: "12px" }}>
                 {TRANSITIONS[c.statut].map((s) => (
                   <button key={s} className="btn btn-sm" onClick={() => changerStatut(s)}>Passer en « {STATUTS[s].label} »</button>
                 ))}
