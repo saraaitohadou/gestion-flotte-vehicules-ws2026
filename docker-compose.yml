@@ -10,7 +10,7 @@ services:
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
       MYSQL_DATABASE: ${DB_NAME}
     ports:
-      - "3306:3306"
+      - "${DB_HOST_PORT:-3306}:3306"
     volumes:
       - db_commune_data:/var/lib/mysql
       - ./db/init:/docker-entrypoint-initdb.d
@@ -30,7 +30,7 @@ services:
     container_name: flotte-phpmyadmin
     restart: unless-stopped
     ports:
-      - "8081:80"
+      - "${PMA_PORT:-8081}:80"
     environment:
       PMA_HOST: db-commune
       PMA_PORT: 3306
@@ -66,6 +66,66 @@ services:
     networks:
       - flotte-network
 
+  # ==========================================
+  # 4. MODULE ENTRETIEN (Laravel)
+  # ==========================================
+  entretien-app:
+    build:
+      context: ./module-entretien
+    container_name: flotte-entretien-app
+    restart: on-failure
+    ports:
+      - "${ENTRETIEN_PORT:-8004}:8004"
+    volumes:
+      - ./module-entretien:/var/www
+    environment: &entretien-env
+      APP_ENV: local
+      APP_DEBUG: "true"
+      APP_KEY: "base64:FWipJPECcyWm1zn77FfVKGRcEjNaqv9A+exl2KyyGik="
+      CACHE_STORE: file
+      SESSION_DRIVER: file
+      QUEUE_CONNECTION: sync
+      DB_CONNECTION: mysql
+      DB_HOST: db-commune
+      DB_PORT: 3306
+      DB_DATABASE: ${ENTRETIEN_DB_NAME:-entretien_db}
+      DB_USERNAME: ${DB_USER:-root}
+      DB_PASSWORD: ${DB_ROOT_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      SERVICE_API_KEY: ${SERVICE_API_KEY}
+      VEHICULE_CHECK: "true"
+      VEHICULE_SERVICE_URL: "http://vehicule-service:80"
+      CHAUFFEUR_SERVICE_URL: "http://chauffeur-mock:8003"
+    depends_on:
+      db-commune:
+        condition: service_healthy
+    networks:
+      - flotte-network
+
+  entretien-scheduler:
+    build:
+      context: ./module-entretien
+    container_name: flotte-entretien-scheduler
+    restart: on-failure
+    command: php artisan schedule:work
+    volumes:
+      - ./module-entretien:/var/www
+    environment: *entretien-env
+    depends_on:
+      db-commune:
+        condition: service_healthy
+    networks:
+      - flotte-network
+
+  # Mock Chauffeur (temporaire, jusqu'a l'integration du vrai service)
+  chauffeur-mock:
+    image: node:20-alpine
+    container_name: flotte-chauffeur-mock
+    command: node /mock/server.js
+    volumes:
+      - ./module-entretien/docker/mock-chauffeur:/mock
+    networks:
+      - flotte-network
 volumes:
   db_commune_data:
 
