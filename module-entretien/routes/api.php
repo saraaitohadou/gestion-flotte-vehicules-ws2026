@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AlerteController;
+use App\Http\Controllers\DeclarationPanneController;
 use App\Http\Controllers\EntretienController;
 use Illuminate\Support\Facades\Route;
 
@@ -16,3 +17,7 @@ Route::patch('/entretiens/{entretien}/terminer', [EntretienController::class, 't
 Route::patch('/entretiens/{entretien}/annuler', [EntretienController::class, 'annuler']);
 Route::get('/vehicules/{vehiculeId}/entretiens', [EntretienController::class, 'historique']);
 Route::get('/alertes', [AlerteController::class, 'index']);
+
+Route::get('/declarations-panne', [DeclarationPanneController::class, 'index']);
+Route::post('/declarations-panne', [DeclarationPanneController::class, 'store']);
+Route::get('/declarations-panne/{declaration}', [DeclarationPanneController::class, 'show']);
