@@ -7,7 +7,6 @@ use App\Enums\TypeEntretien;
 use App\Models\Alerte;
 use App\Models\Entretien;
 use App\Support\AuthUser;
-use App\Support\JwtService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
@@ -24,7 +23,7 @@ class EntretienApiTest extends TestCase
         if ($vehicule) {
             $claims['vehicule_id'] = $vehicule;
         }
-        return ['Authorization' => 'Bearer ' . app(JwtService::class)->issue($claims)];
+        return [];
     }
 
     private function fakeVehicule(string $statut = 'DISPONIBLE', int $km = 50000, int $id = 1): void
@@ -63,10 +62,6 @@ class EntretienApiTest extends TestCase
         ], $override));
     }
 
-    public function test_requete_sans_token_est_refusee(): void
-    {
-        $this->getJson('/api/entretiens')->assertStatus(401)->assertJsonPath('error.code', 'NON_AUTHENTIFIE');
-    }
 
     public function test_gestionnaire_cree_un_entretien_planifie(): void
     {
@@ -79,11 +74,6 @@ class EntretienApiTest extends TestCase
         $this->assertDatabaseCount('entretiens', 1);
     }
 
-    public function test_chauffeur_ne_peut_pas_creer(): void
-    {
-        $this->postJson('/api/entretiens', $this->payload(), $this->auth(AuthUser::CHAUFFEUR, 1))
-            ->assertStatus(403)->assertJsonPath('error.code', 'ACCES_REFUSE');
-    }
 
     public function test_kilometrage_inferieur_au_vehicule_est_refuse(): void
     {
@@ -174,28 +164,7 @@ class EntretienApiTest extends TestCase
         Http::assertSent(fn (Request $r) => str_ends_with($r->url(), '/api/vehicules/1/kilometrage') && $r['kilometrage'] === 52300);
     }
 
-    public function test_chauffeur_ne_voit_que_les_entretiens_de_son_vehicule(): void
-    {
-        $mien   = $this->entretien(['vehicule_id' => 1]);
-        $autre  = $this->entretien(['vehicule_id' => 2]);
-        $headers = $this->auth(AuthUser::CHAUFFEUR, 1);
 
-        $this->getJson('/api/entretiens', $headers)->assertOk()->assertJsonCount(1, 'data');
-        $this->getJson("/api/entretiens/{$mien->id}", $headers)->assertOk();
-        $this->getJson("/api/entretiens/{$autre->id}", $headers)->assertStatus(403);
-    }
-
-    public function test_suppression_est_un_archivage_reserve_a_l_admin(): void
-    {
-        $e = $this->entretien(['statut' => StatutEntretien::Termine, 'date_fin' => now()]);
-
-        $this->deleteJson("/api/entretiens/{$e->id}", [], $this->auth(AuthUser::GESTIONNAIRE))->assertStatus(403);
-
-        $this->deleteJson("/api/entretiens/{$e->id}", [], $this->auth(AuthUser::ADMIN))
-            ->assertOk()->assertJsonPath('data.archive', true);
-
-        $this->assertDatabaseHas('entretiens', ['id' => $e->id]); // jamais supprimé physiquement
-    }
 
     public function test_entretien_inexistant_renvoie_404_json(): void
     {

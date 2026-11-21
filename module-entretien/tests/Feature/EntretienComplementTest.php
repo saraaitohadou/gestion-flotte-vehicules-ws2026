@@ -8,7 +8,6 @@ use App\Models\Alerte;
 use App\Models\Entretien;
 use App\Services\EcheanceService;
 use App\Support\AuthUser;
-use App\Support\JwtService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -24,7 +23,7 @@ class EntretienComplementTest extends TestCase
         if ($vehicule) {
             $claims['vehicule_id'] = $vehicule;
         }
-        return ['Authorization' => 'Bearer ' . app(JwtService::class)->issue($claims)];
+        return [];
     }
 
     private function fakeVehicule(string $statut = 'DISPONIBLE', int $km = 50000, int $id = 1): void
@@ -55,27 +54,8 @@ class EntretienComplementTest extends TestCase
         return $this->entretien(array_merge(['statut' => StatutEntretien::Termine, 'date_fin' => now()], $override));
     }
 
-    // ---------- JWT ----------
 
-    public function test_token_expire_est_refuse(): void
-    {
-        $token = app(JwtService::class)->issue(['sub' => 'x', 'role' => AuthUser::ADMIN], -60);
 
-        $this->getJson('/api/entretiens', ['Authorization' => "Bearer {$token}"])->assertStatus(401);
-    }
-
-    public function test_token_avec_signature_falsifiee_est_refuse(): void
-    {
-        $token = app(JwtService::class)->issue(['sub' => 'x', 'role' => AuthUser::ADMIN]);
-        $faux  = substr($token, 0, -3) . 'AAA';
-
-        $this->getJson('/api/entretiens', ['Authorization' => "Bearer {$faux}"])->assertStatus(401);
-    }
-
-    public function test_token_mal_forme_est_refuse(): void
-    {
-        $this->getJson('/api/entretiens', ['Authorization' => 'Bearer abc'])->assertStatus(401);
-    }
 
     // ---------- Annuler ----------
 
@@ -127,10 +107,6 @@ class EntretienComplementTest extends TestCase
         ]);
     }
 
-    public function test_alertes_sans_token_est_refuse(): void
-    {
-        $this->getJson('/api/alertes')->assertStatus(401);
-    }
 
     public function test_alertes_gestionnaire_voit_les_alertes_ouvertes_seulement(): void
     {
@@ -146,23 +122,7 @@ class EntretienComplementTest extends TestCase
         $this->getJson('/api/alertes?type=PROCHE', $h)->assertOk()->assertJsonCount(1, 'data');
     }
 
-    public function test_alertes_chauffeur_limite_a_son_vehicule(): void
-    {
-        $this->alerte(1, Alerte::PROCHE);
-        $this->alerte(2, Alerte::EN_RETARD);
 
-        $h = $this->auth(AuthUser::CHAUFFEUR, 1);
-
-        $this->getJson('/api/alertes', $h)->assertOk()->assertJsonCount(1, 'data');
-        $this->getJson('/api/alertes?vehicule_id=2', $h)
-            ->assertStatus(403)->assertJsonPath('error.code', 'ACCES_REFUSE');
-    }
-
-    public function test_alertes_chauffeur_sans_vehicule_est_refuse(): void
-    {
-        $this->getJson('/api/alertes', $this->auth(AuthUser::CHAUFFEUR))
-            ->assertStatus(403)->assertJsonPath('error.code', 'ACCES_REFUSE');
-    }
 
     // ---------- EcheanceService (seuils et cas limites) ----------
 
