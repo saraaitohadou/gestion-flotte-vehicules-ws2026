@@ -1,13 +1,17 @@
 <?php
+ini_set('display_errors', '0');
+
 require __DIR__ . '/../vendor/autoload.php';
 
 use App\Controller\VehiculeController;
 use App\Exceptions\ServiceException;
+use App\Auth\JwtAuth;
 
 header('Content-Type: application/json; charset=utf-8');
 
-$method = $_SERVER['REQUEST_METHOD'];
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $path = rtrim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/');
+$path = preg_replace('#^/api(?=/|$)#', '', $path);
 
 // Lecture du corps JSON de la requête
 $raw = file_get_contents('php://input');
@@ -19,6 +23,9 @@ if (!is_array($body)) {
 }
 
 try {
+    if ($method !== 'OPTIONS') {
+        JwtAuth::exiger();
+    }
     $controller = new VehiculeController();
 
     if ($path === '/vehicules') {

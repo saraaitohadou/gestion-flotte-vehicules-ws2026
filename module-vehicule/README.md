@@ -7,7 +7,8 @@ Web service REST (PHP 8.4 + MySQL 8) qui gère les véhicules de la flotte : cr�
 Prérequis : Docker Desktop.
 
 ```
-copy .env.example .env
+Copier le fichier .env.example situé à la racine du projet (gestion-flotte-vehicules-ws2026) en .env
+
 docker compose up -d --build
 ```
 

@@ -24,6 +24,8 @@ services:
       DB_NAME: vehicule_db
       DB_USER: root
       DB_PASS: ${DB_ROOT_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      SERVICE_API_KEY: ${SERVICE_API_KEY}
     depends_on:
       vehicule-db:
         condition: service_healthy
