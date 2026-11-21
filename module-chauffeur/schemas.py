@@ -107,6 +107,7 @@ class ChauffeurReactivation(BaseModel):
     date_expiration_permis: Optional[date] = None
 
 class AffectationRequest(BaseModel):
+    vehicule_id: int                      # obligatoire
     categorie_vehicule: Optional[str] = None
 
 
@@ -125,10 +126,6 @@ class EligibiliteOut(BaseModel):
     affectable: bool
     motifs: list[str]
 
-
-class AffectationRequest(BaseModel):
-    vehicule_id: int
-    categorie_vehicule: Optional[str] = None
 
     
 class ChauffeurOut(BaseModel):

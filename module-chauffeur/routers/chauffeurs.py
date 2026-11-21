@@ -93,6 +93,33 @@ def verifier_unicite(
             )
 
 
+def _verifier_vehicule_libre(
+    db: Session,
+    vehicule_id: int,
+    id_chauffeur_courant: int,
+) -> None:
+    """Lève 409 si un autre chauffeur actif a déjà ce vehicule_id."""
+    deja_affecte = (
+        db.query(models.Chauffeur)
+        .filter(
+            models.Chauffeur.vehicule_id == vehicule_id,
+            models.Chauffeur.id_chauffeur != id_chauffeur_courant,
+            models.Chauffeur.statut != models.StatutChauffeur.INACTIF,
+        )
+        .with_for_update()
+        .first()
+    )
+    if deja_affecte is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "erreur": "VEHICULE_DEJA_AFFECTE",
+                "message": f"Le véhicule {vehicule_id} est déjà affecté au chauffeur "
+                           f"#{deja_affecte.id_chauffeur} ({deja_affecte.statut.value}).",
+            },
+        )
+
+
 @router.post("", response_model=schemas.ChauffeurOut, status_code=status.HTTP_201_CREATED)
 def creer_chauffeur(
     data: schemas.ChauffeurCreate,
@@ -108,6 +135,26 @@ def creer_chauffeur(
                 "message": "Impossible de créer un chauffeur avec un permis expiré.",
             },
         )
+
+    if data.vehicule_id is not None:
+        deja_affecte = (
+            db.query(models.Chauffeur)
+            .filter(
+                models.Chauffeur.vehicule_id == data.vehicule_id,
+                models.Chauffeur.statut != models.StatutChauffeur.INACTIF,
+            )
+            .with_for_update()
+            .first()
+        )
+        if deja_affecte is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "erreur": "VEHICULE_DEJA_AFFECTE",
+                    "message": f"Le véhicule {data.vehicule_id} est déjà affecté au chauffeur "
+                               f"#{deja_affecte.id_chauffeur} ({deja_affecte.statut.value}).",
+                },
+            )
 
     chauffeur = models.Chauffeur(**data.model_dump())
     db.add(chauffeur)
@@ -142,7 +189,23 @@ def modifier_chauffeur(
     db: Session = Depends(get_db),
     authorization: Optional[str] = Header(default=None),
 ):
-    chauffeur = get_chauffeur_actif_or_404(db, id_chauffeur)
+    chauffeur = (
+        db.query(models.Chauffeur)
+        .filter(
+            models.Chauffeur.id_chauffeur == id_chauffeur,
+            models.Chauffeur.statut != models.StatutChauffeur.INACTIF,
+        )
+        .with_for_update()
+        .first()
+    )
+    if chauffeur is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "erreur": "CHAUFFEUR_INTROUVABLE",
+                "message": f"Aucun chauffeur actif avec l'id {id_chauffeur}.",
+            },
+        )
 
     changements = data.model_dump(exclude_unset=True)
     verifier_unicite(
@@ -166,6 +229,21 @@ def modifier_chauffeur(
             },
         )
 
+    ancien_vehicule_id = chauffeur.vehicule_id
+    nouveau_vehicule_id = changements.get("vehicule_id")
+
+    if (
+        "vehicule_id" in changements
+        and nouveau_vehicule_id is not None
+        and nouveau_vehicule_id != ancien_vehicule_id
+    ):
+        _verifier_vehicule_libre(db, nouveau_vehicule_id, id_chauffeur)
+        clients.verifier_disponibilite(nouveau_vehicule_id, bearer_token=authorization)
+        clients.changer_statut_vehicule(
+            nouveau_vehicule_id, "EN_MISSION", bearer_token=authorization
+        )
+        chauffeur.statut = models.StatutChauffeur.EN_MISSION
+
     for champ, valeur in changements.items():
         setattr(chauffeur, champ, valeur)
 
@@ -173,6 +251,17 @@ def modifier_chauffeur(
         db.commit()
     except IntegrityError:
         db.rollback()
+        if (
+            "vehicule_id" in changements
+            and nouveau_vehicule_id is not None
+            and nouveau_vehicule_id != ancien_vehicule_id
+        ):
+            try:
+                clients.changer_statut_vehicule(
+                    nouveau_vehicule_id, "DISPONIBLE", bearer_token=authorization
+                )
+            except Exception:
+                pass
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail={
@@ -180,6 +269,33 @@ def modifier_chauffeur(
                 "message": "Le CIN ou le numéro de permis existe déjà.",
             },
         )
+    except Exception:
+        db.rollback()
+        if (
+            "vehicule_id" in changements
+            and nouveau_vehicule_id is not None
+            and nouveau_vehicule_id != ancien_vehicule_id
+        ):
+            try:
+                clients.changer_statut_vehicule(
+                    nouveau_vehicule_id, "DISPONIBLE", bearer_token=authorization
+                )
+            except Exception:
+                pass
+        raise
+
+    if (
+        "vehicule_id" in changements
+        and ancien_vehicule_id is not None
+        and ancien_vehicule_id != nouveau_vehicule_id
+    ):
+        try:
+            clients.changer_statut_vehicule(
+                ancien_vehicule_id, "DISPONIBLE", bearer_token=authorization
+            )
+        except Exception:
+            pass
+
     db.refresh(chauffeur)
     if chauffeur.vehicule_id:
         try:
@@ -210,6 +326,16 @@ def changer_statut(
             },
         )
 
+    if data.statut == models.StatutChauffeur.EN_MISSION and chauffeur.vehicule_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "erreur": "VEHICULE_REQUIS_POUR_MISSION",
+                "message": "Impossible de passer un chauffeur EN_MISSION sans véhicule affecté. "
+                           "Utilisez POST /api/chauffeurs/{id}/affecter.",
+            },
+        )
+
     regles.verifier_changement_statut(
         chauffeur.statut, data.statut, chauffeur.date_expiration_permis
     )
@@ -218,8 +344,6 @@ def changer_statut(
     db.commit()
     db.refresh(chauffeur)
     return chauffeur
-
-
 @router.post("/{id_chauffeur}/reactiver", response_model=schemas.ChauffeurOut)
 def reactiver_chauffeur(
     id_chauffeur: int,
@@ -411,7 +535,23 @@ def affecter_mission(
     authorization: Optional[str] = Header(default=None),
 ):
     """Affecte un chauffeur à un véhicule : DISPONIBLE -> EN_MISSION des deux côtés."""
-    chauffeur = get_chauffeur_actif_or_404(db, id_chauffeur)
+    chauffeur = (
+        db.query(models.Chauffeur)
+        .filter(
+            models.Chauffeur.id_chauffeur == id_chauffeur,
+            models.Chauffeur.statut != models.StatutChauffeur.INACTIF,
+        )
+        .with_for_update()
+        .first()
+    )
+    if chauffeur is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "erreur": "CHAUFFEUR_INTROUVABLE",
+                "message": f"Aucun chauffeur actif avec l'id {id_chauffeur}.",
+            },
+        )
 
     regles.verifier_changement_statut(
         chauffeur.statut,
@@ -430,6 +570,8 @@ def affecter_mission(
                                f"de conduire un véhicule de catégorie {cat}.",
                 },
             )
+
+    _verifier_vehicule_libre(db, data.vehicule_id, id_chauffeur)
 
     clients.verifier_disponibilite(data.vehicule_id, bearer_token=authorization)
     clients.changer_statut_vehicule(data.vehicule_id, "EN_MISSION", bearer_token=authorization)
