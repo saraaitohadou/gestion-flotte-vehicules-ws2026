@@ -20,6 +20,7 @@ services:
       DB_PASSWORD: secret
       VEHICULE_CHECK: "true"
       VEHICULE_SERVICE_URL: "http://vehicule-mock:8002"
+      CHAUFFEUR_SERVICE_URL: "http://chauffeur-mock:8003"
     depends_on:
       entretien-db:
         condition: service_healthy
@@ -45,6 +46,7 @@ services:
       DB_PASSWORD: secret
       VEHICULE_CHECK: "true"
       VEHICULE_SERVICE_URL: "http://vehicule-mock:8002"
+      CHAUFFEUR_SERVICE_URL: "http://chauffeur-mock:8003"
     depends_on:
       entretien-db:
         condition: service_healthy
@@ -73,6 +75,15 @@ services:
     networks: [default]
     ports: ["8002:8002"]
     volumes: ["./docker/mock-vehicule:/mock"]
+  
+ 
+
+  chauffeur-mock:
+    image: node:20-alpine
+    command: node /mock/server.js
+    networks: [default]
+    ports: ["8003:8003"]
+    volumes: ["./docker/mock-chauffeur:/mock"]
 
 networks:
   flotte-net:
