@@ -31,3 +31,39 @@ def db():
         session.close()
         models.Base.metadata.drop_all(bind=engine)
         engine.dispose()
+
+from fastapi import HTTPException
+import clients
+
+
+class FauxVehicules:
+    def __init__(self):
+        self.statuts, self.en_panne, self._n = {}, False, 0
+
+    def nouveau(self, statut="DISPONIBLE"):
+        self._n += 1
+        self.statuts[self._n] = statut
+        return self._n
+
+    def _controle(self, vid):
+        if self.en_panne:
+            raise HTTPException(503, detail={"erreur": "VEHICULE_SERVICE_INDISPONIBLE", "message": "down"})
+        if vid not in self.statuts:
+            raise HTTPException(404, detail={"erreur": "VEHICULE_INTROUVABLE", "message": "?"})
+
+    def verifier_disponibilite(self, vid):
+        self._controle(vid)
+        if self.statuts[vid] != "DISPONIBLE":
+            raise HTTPException(409, detail={"erreur": "VEHICULE_INDISPONIBLE", "message": "?"})
+
+    def changer_statut(self, vid, statut):
+        self._controle(vid)
+        self.statuts[vid] = statut
+
+
+@pytest.fixture(autouse=True)
+def vehicules(monkeypatch):
+    faux = FauxVehicules()
+    monkeypatch.setattr(clients, "verifier_disponibilite", faux.verifier_disponibilite)
+    monkeypatch.setattr(clients, "changer_statut_vehicule", faux.changer_statut)
+    return faux

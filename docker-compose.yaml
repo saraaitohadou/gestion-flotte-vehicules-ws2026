@@ -1,0 +1,20 @@
+
+  # ---------- Chauffeur (FastAPI) : http://chauffeur-service:8000 ----------
+  chauffeur-service:
+    build: ./module-chauffeur
+    restart: unless-stopped
+    environment:
+      <<: *auth-env
+      DATABASE_URL: mysql+pymysql://root:${DB_ROOT_PASSWORD}@db:3306/flotte_db
+      ADMIN_USERNAME: ${ADMIN_USERNAME}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      VEHICULE_SERVICE_URL: http://vehicule-service
+    ports:
+      - "8002:8000"
+    networks: [flotte-net]
+    depends_on:
+      db:
+        condition: service_healthy
+      vehicule-service:
+        condition: service_started
+
