@@ -21,6 +21,7 @@ services:
       VEHICULE_CHECK: "true"
       VEHICULE_SERVICE_URL: "http://vehicule-mock:8002"
       CHAUFFEUR_SERVICE_URL: "http://chauffeur-mock:8003"
+      JWT_SECRET: "${JWT_SECRET:-secret-dev-a-changer}"
     depends_on:
       entretien-db:
         condition: service_healthy
@@ -47,6 +48,7 @@ services:
       VEHICULE_CHECK: "true"
       VEHICULE_SERVICE_URL: "http://vehicule-mock:8002"
       CHAUFFEUR_SERVICE_URL: "http://chauffeur-mock:8003"
+      JWT_SECRET: "${JWT_SECRET:-secret-dev-a-changer}"
     depends_on:
       entretien-db:
         condition: service_healthy

@@ -18,7 +18,17 @@ final class AuthUser
 
     public static function fromRequest(Request $request): self
     {
-        return new self('system', self::ADMIN);
+        $jwt = $request->attributes->get('jwt');
+
+        if (! is_array($jwt)) {
+            return new self('system', self::ADMIN);
+        }
+
+        return new self(
+            isset($jwt['sub']) ? (string) $jwt['sub'] : null,
+            self::normaliserRole($jwt['role'] ?? null),
+            isset($jwt['vehicule_id']) ? (int) $jwt['vehicule_id'] : null,
+        );
     }
 
     public static function normaliserRole(?string $role): string
