@@ -3,7 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Exceptions\BusinessException;
+use App\Enums\StatutEntretien;
+use App\Enums\TypeEntretien;
 use App\Models\DeclarationPanne;
+use App\Models\Entretien;
 use App\Services\ChauffeurClient;
 use App\Services\VehiculeClient;
 use Illuminate\Http\JsonResponse;
@@ -66,5 +69,47 @@ class DeclarationPanneController extends Controller
         ]);
 
         return response()->json(['data' => $declaration], 201);
+    }
+
+    public function prendreEnCharge(DeclarationPanne $declaration): JsonResponse
+    {
+        $this->verifierEnAttente($declaration);
+
+        $entretien = Entretien::create([
+            'vehicule_id'    => $declaration->vehicule_id,
+            'type'           => TypeEntretien::CORRECTIF,
+            'categorie'      => $declaration->categorie,
+            'description'    => $declaration->description,
+            'date_entretien' => now()->toDateString(),
+            'kilometrage'    => $declaration->kilometrage ?? 0,
+            'statut'         => StatutEntretien::Planifie,
+            'created_by'     => $declaration->created_by,
+        ]);
+
+        $declaration->update([
+            'statut'       => DeclarationPanne::TRAITEE,
+            'entretien_id' => $entretien->id,
+        ]);
+
+        return response()->json(['data' => $declaration->fresh()]);
+    }
+
+    public function rejeter(DeclarationPanne $declaration): JsonResponse
+    {
+        $this->verifierEnAttente($declaration);
+        $declaration->update(['statut' => DeclarationPanne::REJETEE]);
+
+        return response()->json(['data' => $declaration->fresh()]);
+    }
+
+    private function verifierEnAttente(DeclarationPanne $declaration): void
+    {
+        if ($declaration->statut !== DeclarationPanne::DECLAREE) {
+            throw new BusinessException(
+                "Declaration deja {$declaration->statut}.",
+                422,
+                'DECLARATION_DEJA_TRAITEE'
+            );
+        }
     }
 }

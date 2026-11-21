@@ -21,3 +21,5 @@ Route::get('/alertes', [AlerteController::class, 'index']);
 Route::get('/declarations-panne', [DeclarationPanneController::class, 'index']);
 Route::post('/declarations-panne', [DeclarationPanneController::class, 'store']);
 Route::get('/declarations-panne/{declaration}', [DeclarationPanneController::class, 'show']);
+Route::patch('/declarations-panne/{declaration}/prendre-en-charge', [DeclarationPanneController::class, 'prendreEnCharge']);
+Route::patch('/declarations-panne/{declaration}/rejeter', [DeclarationPanneController::class, 'rejeter']);
