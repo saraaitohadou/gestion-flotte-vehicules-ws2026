@@ -1,8 +1,10 @@
 # Service Entretien
 
-Microservice de gestion des entretiens de la flotte (Laravel, MySQL).
+Microservice de gestion des entretiens de la flotte (Laravel 11, MySQL 8).
 
-## Démarrage
+## Demarrage
+
+### Mode mock (par defaut, service seul)
 
 ```powershell
 docker network create flotte-net   # une seule fois (ignorer "already exists")
@@ -13,26 +15,45 @@ docker compose exec entretien-app php artisan migrate --force
 | Composant | URL / port |
 |---|---|
 | API entretien | http://localhost:8004/api |
-| Mock véhicule | http://localhost:8002 |
+| Mock vehicule | http://localhost:8002 |
+| Mock chauffeur | http://localhost:8003 |
 | MySQL | localhost:3307 |
 | Contrat OpenAPI | `public/openapi.yaml` |
 
-Santé : `GET http://localhost:8004/api/health`
+Sante : `GET http://localhost:8004/api/health`
 
-## Règles métier
+### Mode reel (services Vehicule et Chauffeur)
 
-- Cycle de vie : PLANIFIE → EN_COURS → TERMINE ; PLANIFIE ou EN_COURS → ANNULE. Aucun retour en arrière.
-- Démarrer : le véhicule passe EN_MAINTENANCE. Un seul entretien EN_COURS par véhicule.
-- Terminer : le véhicule repasse DISPONIBLE, le kilométrage est mis à jour, `date_fin` vaut now() par défaut.
-- Échéance (préventif) : calculée depuis `config/entretien.php` (ex. VIDANGE = 6 mois / 10 000 km). Les alertes ouvertes du véhicule et de la catégorie sont résolues.
-- Annuler un entretien EN_COURS : le véhicule repasse DISPONIBLE.
-- DELETE = archivage (`archive_at`), jamais de suppression physique. ADMIN uniquement, sur TERMINE ou ANNULE seulement.
-- Kilométrage saisi >= kilométrage du véhicule (`KILOMETRAGE_INVALIDE`).
-- Format d'erreur : `{"error": {"code", "message", "details"}}`. Succès : `{"data": ...}`.
+Modifier `VEHICULE_SERVICE_URL` et `CHAUFFEUR_SERVICE_URL` dans `docker-compose.yml` et `.env.example`
+(ex. `http://vehicule-app:8000`, `http://chauffeur-app:8000`), puis `docker compose up -d`.
+Le service est attache au reseau externe `flotte-net`. Si les routes ou champs different, adapter
+`app/Services/VehiculeClient.php` et `app/Services/ChauffeurClient.php`.
 
-## Alertes (CRON)
+Mocks : vehicule 1/2/5 = DISPONIBLE, 3 = HORS_SERVICE, 4 = ARCHIVE ; chauffeur 1 = EN_MISSION,
+2 = DISPONIBLE, 3 = EN_CONGE, 4 = INACTIF.
 
-Commande quotidienne : calcule les échéances des entretiens préventifs et génère les alertes (PROCHE / EN_RETARD).
+## Regles metier
+
+- Cycle de vie : PLANIFIE -> EN_COURS -> TERMINE ; PLANIFIE ou EN_COURS -> ANNULE. Aucun retour en arriere.
+- Demarrer : le vehicule passe EN_MAINTENANCE. Un seul entretien EN_COURS par vehicule.
+- Terminer : le vehicule repasse DISPONIBLE, le kilometrage est mis a jour.
+- Echeance (preventif) : calculee depuis `config/entretien.php` (ex. VIDANGE = 6 mois / 10 000 km).
+- Kilometrage saisi >= kilometrage du vehicule (`KILOMETRAGE_INVALIDE`).
+- Format d'erreur : `{"error": {"code", "message", "details"}}`. Succes : `{"data": ...}`.
+
+## Declaration de panne
+
+- `POST /api/declarations-panne` : un chauffeur declare une panne (categorie PANNE ou REPARATION).
+  Vehicule HORS_SERVICE/ARCHIVE refuse ; EN_MISSION accepte. Chauffeur EN_CONGE/INACTIF refuse.
+  Si le service Chauffeur est injoignable : mode degrade (`chauffeur_verifie = false`).
+- `GET /api/declarations-panne`, `GET /api/declarations-panne/{id}`
+- `PATCH /api/declarations-panne/{id}/prendre-en-charge` : cree un entretien CORRECTIF PLANIFIE, statut TRAITEE.
+- `PATCH /api/declarations-panne/{id}/rejeter` : statut REJETEE.
+- Une declaration deja traitee renvoie 422 `DECLARATION_DEJA_TRAITEE`.
+## Scheduler et alertes
+
+Le conteneur `entretien-scheduler` lance `php artisan schedule:work`. La commande
+`entretiens:verifier-echeances` s'execute **chaque jour a 02:00** et genere les alertes (PROCHE / EN_RETARD).
 
 ```powershell
 docker compose exec entretien-app php artisan entretiens:verifier-echeances
@@ -40,32 +61,26 @@ docker compose exec entretien-app php artisan entretiens:verifier-echeances
 
 Seuils : `ALERTE_JOURS_AVANT` (15 jours) et `ALERTE_KM_AVANT` (500 km). Consultation : `GET /api/alertes`.
 
+## Archivage
+
+`DELETE /api/entretiens/{id}` = archivage logique (`archive_at`), jamais de suppression physique.
+Reserve a l'ADMIN, uniquement sur un entretien TERMINE ou ANNULE. Historique complet d'un vehicule
+(archives incluses) : `GET /api/vehicules/{id}/entretiens`.
+
 ## Tests
 
 ```powershell
-docker compose exec -e DB_CONNECTION=sqlite -e DB_DATABASE=:memory: entretien-app php artisan test
-docker compose exec -e DB_CONNECTION=sqlite -e DB_DATABASE=:memory: entretien-app php artisan test --testsuite=Unit
+docker compose run --rm --no-deps -e DB_CONNECTION=sqlite -e DB_DATABASE=:memory: entretien-app php artisan test
 ```
 
-Attendu : 30 passed (10 unitaires + 20 Feature). Les tests Feature simulent le service véhicule (`Http::fake`).
+Attendu : **61 passed**. Les tests simulent les services externes (`Http::fake`).
 
+## Authentification et roles
+
+Decision d'equipe : la securisation par JWT et la gestion des roles sont mises en attente.
+Le service ne bloque aucune requete : l'identite de l'appelant est lue via `App\Support\AuthUser`
+et enregistree dans les champs d'audit (`created_by`, `started_by`...). L'integration JWT
+pourra etre ajoutee sans modifier les regles metier.
 ## Postman
 
 Collection : `postman/collections/Module Entretien/` (variables `base_url`, `entretien_id`).
-
-## Intégration avec le service Véhicule
-
-Par défaut, `VEHICULE_SERVICE_URL=http://vehicule-mock:8002` : un mock Node (`docker/mock-vehicule`) simule le service Véhicule (véhicule 1 = DISPONIBLE à 45 000 km, 3 = HORS_SERVICE, 4 = ARCHIVE, 5 = DISPONIBLE (10 000 km), 99 = introuvable).
-
-Le service est aussi attaché au réseau Docker externe `flotte-net`. Pour utiliser le vrai service Véhicule :
-
-1. Récupérer le nom de service/container et le port du service Véhicule.
-2. Modifier `VEHICULE_SERVICE_URL` dans `docker-compose.yml` et `.env.example` (ex. `http://vehicule-app:8000`).
-3. Le service doit exposer :
-   - `GET /api/vehicules/{id}` → `statut`, `kilometrage`
-   - `PATCH /api/vehicules/{id}/statut`
-   - `PATCH /api/vehicules/{id}/kilometrage`
-
-   Si les routes ou champs diffèrent, adapter `app/Services/VehiculeClient.php`.
-
-Variables utiles : `VEHICULE_SERVICE_TIMEOUT` (3 s).
