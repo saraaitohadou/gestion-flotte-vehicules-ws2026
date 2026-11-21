@@ -73,14 +73,29 @@ Reserve a l'ADMIN, uniquement sur un entretien TERMINE ou ANNULE. Historique com
 docker compose run --rm --no-deps -e DB_CONNECTION=sqlite -e DB_DATABASE=:memory: entretien-app php artisan test
 ```
 
-Attendu : **61 passed**. Les tests simulent les services externes (`Http::fake`).
+Attendu : **70 passed**. Les tests simulent les services externes (`Http::fake`).
 
 ## Authentification et roles
 
-Decision d'equipe : la securisation par JWT et la gestion des roles sont mises en attente.
-Le service ne bloque aucune requete : l'identite de l'appelant est lue via `App\Support\AuthUser`
-et enregistree dans les champs d'audit (`created_by`, `started_by`...). L'integration JWT
-pourra etre ajoutee sans modifier les regles metier.
+Authentification par JWT (HS256). Le service **verifie** le token ; il ne l'emet pas
+(le token est emis par le service Chauffeur, `POST /api/auth/login`, meme `JWT_SECRET`).
+Header : `Authorization: Bearer <token>`.
+Claims : `sub` (id), `role`, `vehicule_id` (optionnel), `exp`.
+`JWT_SECRET` : 16 caracteres minimum, identique dans les deux services. Un secret absent ou par defaut est refuse (500 `CONFIG_MANQUANTE`).
+Erreurs : 401 `NON_AUTHENTIFIE` / `TOKEN_INVALIDE` / `TOKEN_EXPIRE`, 403 `ACCES_INTERDIT`.
+
+| Action | Roles autorises |
+|---|---|
+| Lecture entretiens, historique, declarations | ADMINISTRATEUR, GESTIONNAIRE, CHAUFFEUR |
+| Alertes, creer/modifier/demarrer/terminer/annuler un entretien | ADMINISTRATEUR, GESTIONNAIRE |
+| Prendre en charge / rejeter une declaration | ADMINISTRATEUR, GESTIONNAIRE |
+| Archiver (DELETE) | ADMINISTRATEUR |
+| Declarer une panne | CHAUFFEUR, ADMINISTRATEUR |
+
+`GET /api/health` reste public.
+
+Limite actuelle : le login du service Chauffeur n'emet que des tokens ADMINISTRATEUR.
+Les roles GESTIONNAIRE et CHAUFFEUR sont verifies par Entretien et couverts par les tests.
 ## Postman
 
 Collection : `postman/collections/Module Entretien/` (variables `base_url`, `entretien_id`).
