@@ -6,4 +6,4 @@ WORKDIR /var/www
 COPY . .
 RUN touch .env && composer install --no-interaction
 EXPOSE 8004
-CMD php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=8004
+CMD php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=8004 --no-reload
