@@ -102,6 +102,7 @@ export default function EntretienDetail() {
         <button className={`btn ${onglet === "histo" ? "btn-primary" : ""}`} onClick={() => setOnglet("histo")}>
           Historique du vehicule #{e.vehicule_id} ({historique.length})
         </button>
+        <button className={`btn ${onglet === "statuts" ? "btn-primary" : ""}`} onClick={() => setOnglet("statuts")}>Statuts ({e.historique?.length ?? 0})</button>
       </div>
 
       {onglet === "infos" && (
@@ -126,6 +127,21 @@ export default function EntretienDetail() {
             {ligne("Annule par", e.responsables?.annule_par ?? "-")}
             {ligne("Archive par", e.responsables?.archive_par ?? "-")}
           </div>
+        </div>
+      )}
+
+      {onglet === "statuts" && (
+        <div className="panel">
+          {(e.historique ?? []).length === 0 ? <p className="muted">Aucun changement de statut enregistre.</p> : (
+            <ol style={{ margin: 0, paddingLeft: 20 }}>
+              {e.historique.map((h, i) => (
+                <li key={i} style={{ padding: "6px 0" }}>
+                  <strong>{h.ancien_statut ? `${h.ancien_statut} -> ${h.nouveau_statut}` : `Cree (${h.nouveau_statut})`}</strong>
+                  <span className="muted"> | par {h.action_par ?? "-"} | {dt(h.date)}</span>
+                </li>
+              ))}
+            </ol>
+          )}
         </div>
       )}
 

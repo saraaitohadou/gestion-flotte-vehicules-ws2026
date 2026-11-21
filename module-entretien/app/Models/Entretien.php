@@ -16,7 +16,7 @@ class Entretien extends Model
         'vehicule_id', 'type', 'categorie', 'description', 'date_entretien',
         'kilometrage', 'cout', 'statut', 'date_debut', 'date_fin',
         'date_prochaine_echeance', 'km_prochaine_echeance', 'archive_at',
-        'created_by', 'started_by', 'finished_by', 'cancelled_by', 'archived_by',
+        'created_by', 'started_by', 'finished_by', 'cancelled_by', 'archived_by', 'cancelled_at',
     ];
 
     // Memes valeurs par defaut que la migration
@@ -35,8 +35,14 @@ class Entretien extends Model
             'date_fin'                => 'datetime',
             'date_prochaine_echeance' => 'date',
             'archive_at'              => 'datetime',
+            'cancelled_at'            => 'datetime',
             'cout'                    => 'decimal:2',
         ];
+    }
+
+    public function historique()
+    {
+        return $this->hasMany(EntretienHistorique::class)->orderBy('id');
     }
 
     public function estArchive(): bool
