@@ -394,26 +394,88 @@ def test_ut_cha_41_permis_expire_non_affectable(db):
     assert r["affectable"] is False
     assert "PERMIS_EXPIRE" in r["motifs"]
 
-
-def test_ut_cha_42_affectation_refusee_si_categorie_incompatible(db):
+def test_ut_cha_42_affectation_refusee_si_categorie_incompatible(db, vehicules):
     c = creer(db, categorie_permis="B")
+    vid = vehicules.nouveau()
     with pytest.raises(HTTPException) as e:
         svc.affecter_mission(c.id_chauffeur,
-                             schemas.AffectationRequest(categorie_vehicule="C"), db)
+                             schemas.AffectationRequest(vehicule_id=vid, categorie_vehicule="C"), db)
     assert e.value.status_code == 409
     assert erreur(e) == "CATEGORIE_INCOMPATIBLE"
+    assert vehicules.statuts[vid] == "DISPONIBLE"     # véhicule non touché
     db.expire_all()
     assert db.get(models.Chauffeur, c.id_chauffeur).statut == S.DISPONIBLE
 
 
-def test_ut_cha_43_affectation_puis_cloture_de_mission(db):
+def test_ut_cha_43_affectation_puis_cloture_de_mission(db, vehicules):
     c = creer(db, categorie_permis="C")
+    vid = vehicules.nouveau()
     en_mission = svc.affecter_mission(
-        c.id_chauffeur, schemas.AffectationRequest(categorie_vehicule="C"), db)
+        c.id_chauffeur, schemas.AffectationRequest(vehicule_id=vid, categorie_vehicule="C"), db)
     assert en_mission.statut == S.EN_MISSION
+    assert en_mission.vehicule_id == vid
+    assert vehicules.statuts[vid] == "EN_MISSION"
     libre = svc.cloturer_mission(c.id_chauffeur, db)
     assert libre.statut == S.DISPONIBLE
+    assert libre.vehicule_id is None
+    assert vehicules.statuts[vid] == "DISPONIBLE"
 
+
+def test_ut_cha_47_affectation_refusee_si_vehicule_indisponible(db, vehicules):
+    c = creer(db)
+    vid = vehicules.nouveau(statut="EN_MAINTENANCE")
+    with pytest.raises(HTTPException) as e:
+        svc.affecter_mission(c.id_chauffeur, schemas.AffectationRequest(vehicule_id=vid), db)
+    assert e.value.status_code == 409
+    assert erreur(e) == "VEHICULE_INDISPONIBLE"
+    db.expire_all()
+    assert db.get(models.Chauffeur, c.id_chauffeur).statut == S.DISPONIBLE
+
+
+def test_ut_cha_48_affectation_refusee_si_vehicule_inexistant(db):
+    c = creer(db)
+    with pytest.raises(HTTPException) as e:
+        svc.affecter_mission(c.id_chauffeur, schemas.AffectationRequest(vehicule_id=999), db)
+    assert e.value.status_code == 404
+    assert erreur(e) == "VEHICULE_INTROUVABLE"
+
+
+def test_ut_cha_49_service_vehicule_en_panne_donne_503_sans_changement(db, vehicules):
+    c = creer(db)
+    vid = vehicules.nouveau()
+    vehicules.en_panne = True
+    with pytest.raises(HTTPException) as e:
+        svc.affecter_mission(c.id_chauffeur, schemas.AffectationRequest(vehicule_id=vid), db)
+    assert e.value.status_code == 503
+    db.expire_all()
+    assert db.get(models.Chauffeur, c.id_chauffeur).statut == S.DISPONIBLE
+
+
+def test_ut_cha_50_cloture_impossible_si_service_vehicule_en_panne(db, vehicules):
+    c = creer(db)
+    vid = vehicules.nouveau()
+    svc.affecter_mission(c.id_chauffeur, schemas.AffectationRequest(vehicule_id=vid), db)
+    vehicules.en_panne = True
+    with pytest.raises(HTTPException) as e:
+        svc.cloturer_mission(c.id_chauffeur, db)
+    assert e.value.status_code == 503
+    db.expire_all()
+    assert db.get(models.Chauffeur, c.id_chauffeur).statut == S.EN_MISSION
+    c = creer(db, categorie_permis="C")
+    vid = vehicules.nouveau()
+    en_mission = svc.affecter_mission(
+        c.id_chauffeur,
+        schemas.AffectationRequest(vehicule_id=vid, categorie_vehicule="C"),
+        db,
+    )
+    assert en_mission.statut == S.EN_MISSION
+    assert en_mission.vehicule_id == vid
+    assert vehicules.statuts[vid] == "EN_MISSION"
+
+    libre = svc.cloturer_mission(c.id_chauffeur, db)
+    assert libre.statut == S.DISPONIBLE
+    assert libre.vehicule_id is None
+    assert vehicules.statuts[vid] == "DISPONIBLE"
 
 def test_ut_cha_44_cloture_refusee_si_pas_en_mission(db):
     c = creer(db)

@@ -123,6 +123,11 @@ class EligibiliteOut(BaseModel):
     affectable: bool
     motifs: list[str]
 
+
+class AffectationRequest(BaseModel):
+    vehicule_id: int
+    categorie_vehicule: Optional[str] = None
+
     
 class ChauffeurOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -138,3 +143,4 @@ class ChauffeurOut(BaseModel):
     statut: StatutChauffeur
     created_at: datetime
     updated_at: datetime
+    vehicule_id: Optional[int] = None

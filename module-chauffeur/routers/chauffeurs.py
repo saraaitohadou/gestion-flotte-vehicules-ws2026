@@ -2,6 +2,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+import clients
 import regles
 import models
 import schemas
@@ -266,12 +267,10 @@ def verifier_eligibilite(id_chauffeur: int, db: Session = Depends(get_db)):
         **regles.evaluer_eligibilite(chauffeur.statut, chauffeur.date_expiration_permis),
     }
 
-
 @router.post("/{id_chauffeur}/affecter", response_model=schemas.ChauffeurOut)
-def affecter_mission(id_chauffeur: int,
-                     data: Optional[schemas.AffectationRequest] = None,
+def affecter_mission(id_chauffeur: int, data: schemas.AffectationRequest,
                      db: Session = Depends(get_db)):
-    """Début de mission : DISPONIBLE -> EN_MISSION (appelé par le service Véhicule)."""
+    """Affecte un chauffeur à un véhicule : DISPONIBLE -> EN_MISSION des deux côtés."""
     chauffeur = get_chauffeur_actif_or_404(db, id_chauffeur)
 
     regles.verifier_changement_statut(
@@ -279,7 +278,7 @@ def affecter_mission(id_chauffeur: int,
         chauffeur.date_expiration_permis,
     )
 
-    if data and data.categorie_vehicule:
+    if data.categorie_vehicule:
         cat = categorie_vehicule_valide(data.categorie_vehicule)
         if not regles.categorie_compatible(chauffeur.categorie_permis, cat):
             raise HTTPException(
@@ -289,15 +288,25 @@ def affecter_mission(id_chauffeur: int,
                                    f"de conduire un véhicule de catégorie {cat}."},
             )
 
-    chauffeur.statut = models.StatutChauffeur.EN_MISSION
-    db.commit()
+    # Diagramme de séquence : disponibilité, puis passage du véhicule EN_MISSION
+    clients.verifier_disponibilite(data.vehicule_id)
+    clients.changer_statut_vehicule(data.vehicule_id, "EN_MISSION")
+
+    try:
+        chauffeur.statut = models.StatutChauffeur.EN_MISSION
+        chauffeur.vehicule_id = data.vehicule_id
+        db.commit()
+    except Exception:
+        db.rollback()
+        clients.changer_statut_vehicule(data.vehicule_id, "DISPONIBLE")  # compensation
+        raise
     db.refresh(chauffeur)
     return chauffeur
 
 
 @router.post("/{id_chauffeur}/cloturer-mission", response_model=schemas.ChauffeurOut)
 def cloturer_mission(id_chauffeur: int, db: Session = Depends(get_db)):
-    """Fin de mission : EN_MISSION -> DISPONIBLE (appelé par le service Véhicule)."""
+    """Fin de mission : le véhicule repasse DISPONIBLE, puis le chauffeur aussi."""
     chauffeur = get_chauffeur_actif_or_404(db, id_chauffeur)
 
     if chauffeur.statut != models.StatutChauffeur.EN_MISSION:
@@ -312,11 +321,15 @@ def cloturer_mission(id_chauffeur: int, db: Session = Depends(get_db)):
         chauffeur.date_expiration_permis,
     )
 
+    # Si le service Véhicule est en panne : 503 et le chauffeur reste EN_MISSION (cohérent)
+    if chauffeur.vehicule_id is not None:
+        clients.changer_statut_vehicule(chauffeur.vehicule_id, "DISPONIBLE")
+
     chauffeur.statut = models.StatutChauffeur.DISPONIBLE
+    chauffeur.vehicule_id = None
     db.commit()
     db.refresh(chauffeur)
     return chauffeur
-
 
 
 @router.delete("/{id_chauffeur}", status_code=status.HTTP_204_NO_CONTENT)

@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Espace Chauffeur - Gestion de Flotte</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --success: #16a34a;
+            --warning: #ca8a04;
+            --danger: #dc2626;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --radius: 10px;
+            --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background-color: #1e293b;
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        header h1 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .user-nav {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-weight: 500;
+            font-size: 0.875rem;
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .btn-primary { background-color: var(--primary); color: white; }
+        .btn-primary:hover { background-color: var(--primary-hover); }
+        .btn-danger { background-color: var(--danger); color: white; }
+        .btn-outline { background-color: transparent; border-color: var(--border); color: var(--text-main); }
+        .btn-outline:hover { background-color: #f1f5f9; }
+        .btn-sm { padding: 0.25rem 0.5rem; font-size: 0.75rem; }
+
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            width: 100%;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .card-header h2 {
+            font-size: 1.15rem;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .grid-2 { grid-template-columns: 1fr; }
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.35rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-main);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.6rem 0.75rem;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            font-size: 0.875rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .form-control:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.6rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge-success { background: #dcfce7; color: #15803d; }
+        .badge-warning { background: #fef9c3; color: #a16207; }
+        .badge-danger { background: #fee2e2; color: #b91c1c; }
+        .badge-info { background: #e0f2fe; color: #0369a1; }
+        .badge-neutral { background: #f1f5f9; color: #475569; }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 6px;
+            margin-bottom: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 0.9rem;
+        }
+
+        .alert-danger { background-color: #fee2e2; color: #991b1b; border: 1px solid #f87171; }
+        .alert-warning { background-color: #fef9c3; color: #854d0e; border: 1px solid #fde047; }
+        .alert-success { background-color: #dcfce7; color: #166534; border: 1px solid #86efac; }
+        .alert-info { background-color: #e0f2fe; color: #075985; border: 1px solid #7dd3fc; }
+
+        .info-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .info-table th, .info-table td {
+            padding: 0.6rem 0;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 0.875rem;
+            text-align: left;
+        }
+
+        .info-table th {
+            color: var(--text-muted);
+            font-weight: 500;
+            width: 40%;
+        }
+
+        .table-data {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 0.75rem;
+        }
+
+        .table-data th, .table-data td {
+            padding: 0.6rem 0.75rem;
+            border-bottom: 1px solid var(--border);
+            text-align: left;
+            font-size: 0.85rem;
+        }
+
+        .table-data th {
+            background-color: #f8fafc;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        #login-section {
+            max-width: 420px;
+            margin: 4rem auto;
+        }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>
+            <span>🚚</span> Espace Chauffeur
+        </h1>
+        <div id="user-nav" class="user-nav hidden">
+            <span id="nav-chauffeur-name" style="font-weight: 500;"></span>
+            <button class="btn btn-outline btn-sm" onclick="deconnexion()" style="color: white; border-color: #475569;">Déconnexion</button>
+        </div>
+    </header>
+
+    <div class="container">
+
+        <!-- Notification Globale -->
+        <div id="global-alert" class="alert hidden"></div>
+
+        <!-- 1. FORMULAIRE DE CONNEXION -->
+        <div id="login-section" class="card">
+            <div class="card-header">
+                <h2>Connexion Chauffeur</h2>
+            </div>
+            <p style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+                Connectez-vous à l'aide de votre CIN et de votre numéro de permis de conduire.
+            </p>
+            <form id="login-form" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label for="login-cin">CIN Conducteur</label>
+                    <input type="text" id="login-cin" class="form-control" placeholder="ex: AB123456" required autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label for="login-permis">Numéro de Permis</label>
+                    <input type="text" id="login-permis" class="form-control" placeholder="ex: 12/34567" required autocomplete="current-password">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 0.5rem;" id="login-btn">
+                    Se connecter
+                </button>
+            </form>
+        </div>
+
+        <!-- 2. TABLEAU DE BORD DU CHAUFFEUR (AUTHENTIFIÉ) -->
+        <div id="dashboard-section" class="hidden">
+
+            <!-- Alerte Statut du Permis -->
+            <div id="permis-banner" class="alert"></div>
+
+            <div class="grid-2">
+                <!-- Carte Profil & Permis -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Mon Profil Conducteur</h2>
+                        <span id="statut-badge" class="badge"></span>
+                    </div>
+                    <table class="info-table">
+                        <tr><th>Nom & Prénom</th><td id="info-nom"></td></tr>
+                        <tr><th>CIN</th><td id="info-cin"></td></tr>
+                        <tr><th>Téléphone</th><td id="info-tel">-</td></tr>
+                        <tr><th>Numéro de Permis</th><td id="info-permis"></td></tr>
+                        <tr><th>Catégorie Permis</th><td id="info-cat"></td></tr>
+                        <tr><th>Expiration Permis</th><td id="info-expiration"></td></tr>
+                    </table>
+
+                    <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+                        <h3 style="font-size: 0.95rem; margin-bottom: 0.75rem;">Mettre à jour mon statut</h3>
+                        <form id="statut-form" onsubmit="handleStatutUpdate(event)" style="display: flex; gap: 0.5rem; align-items: flex-end; flex-wrap: wrap;">
+                            <div class="form-group" style="flex: 1; min-width: 140px; margin-bottom: 0;">
+                                <label for="select-statut">Nouveau Statut</label>
+                                <select id="select-statut" class="form-control" onchange="toggleVehiculeInput(this.value)">
+                                    <option value="DISPONIBLE">DISPONIBLE</option>
+                                    <option value="EN_MISSION">EN_MISSION</option>
+                                    <option value="EN_CONGE">EN_CONGE</option>
+                                    <option value="INACTIF">INACTIF</option>
+                                </select>
+                            </div>
+                            <div id="group-vehicule-id" class="form-group hidden" style="flex: 1; min-width: 120px; margin-bottom: 0;">
+                                <label for="input-vehicule-id">ID Véhicule</label>
+                                <input type="number" id="input-vehicule-id" class="form-control" placeholder="ex: 1" min="1">
+                            </div>
+                            <button type="submit" class="btn btn-primary" style="height: 38px;">Valider</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Carte Véhicule Assigné -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Véhicule Assigné</h2>
+                        <span id="vehicule-statut-badge" class="badge"></span>
+                    </div>
+                    <div id="vehicule-empty" class="alert alert-info">
+                        Aucun véhicule assigné actuellement. Passez au statut <strong>EN_MISSION</strong> en spécifiant un identifiant de véhicule pour vous en attribuer un.
+                    </div>
+                    <div id="vehicule-details" class="hidden">
+                        <table class="info-table">
+                            <tr><th>Immatriculation</th><td id="v-immat" style="font-weight: 600;"></td></tr>
+                            <tr><th>Marque & Modèle</th><td id="v-marque-modele"></td></tr>
+                            <tr><th>Kilométrage</th><td id="v-km"></td></tr>
+                            <tr><th>Carburant Requis</th><td id="v-carburant"></td></tr>
+                            <tr><th>Année</th><td id="v-annee">-</td></tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. ACTIONS MISSION : CARBURANT & ENTRETIEN -->
+            <div class="grid-2">
+                <!-- Déclaration Carburant -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Déclaration de Plein Carburant</h2>
+                    </div>
+                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+                        Transmet la déclaration au service Carburant avec validation du kilométrage.
+                    </p>
+                    <form id="carburant-form" onsubmit="handleCarburant(event)">
+                        <div class="grid-2" style="gap: 0.75rem;">
+                            <div class="form-group">
+                                <label for="c-litres">Litres</label>
+                                <input type="number" id="c-litres" class="form-control" step="0.01" min="0.1" required placeholder="ex: 45.5">
+                            </div>
+                            <div class="form-group">
+                                <label for="c-prix">Prix / Litre (MAD)</label>
+                                <input type="number" id="c-prix" class="form-control" step="0.01" min="0.1" required placeholder="ex: 14.20">
+                            </div>
+                        </div>
+                        <div class="grid-2" style="gap: 0.75rem;">
+                            <div class="form-group">
+                                <label for="c-km">Kilométrage Compteur</label>
+                                <input type="number" id="c-km" class="form-control" min="0" required placeholder="ex: 125000">
+                            </div>
+                            <div class="form-group">
+                                <label for="c-type">Type Carburant</label>
+                                <select id="c-type" class="form-control">
+                                    <option value="diesel">Diesel</option>
+                                    <option value="essence">Essence</option>
+                                    <option value="gpl">GPL</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="grid-2" style="gap: 0.75rem;">
+                            <div class="form-group">
+                                <label for="c-station">Station (optionnel)</label>
+                                <input type="text" id="c-station" class="form-control" placeholder="ex: Total Agdal">
+                            </div>
+                            <div class="form-group">
+                                <label for="c-date">Date du Plein</label>
+                                <input type="date" id="c-date" class="form-control" required>
+                            </div>
+                        </div>
+                        <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem;">
+                            <input type="checkbox" id="c-complet" checked>
+                            <label for="c-complet" style="margin-bottom: 0; font-size: 0.85rem; cursor: pointer;">Plein complet</label>
+                        </div>
+                        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 0.5rem;">
+                            Enregistrer le plein
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Signalement & Suivi Entretien -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Signalement & Entretiens</h2>
+                        <button class="btn btn-outline btn-sm" onclick="chargerEntretiens()">Rafraîchir</button>
+                    </div>
+                    
+                    <form id="entretien-form" onsubmit="handleEntretien(event)" style="margin-bottom: 1.5rem;">
+                        <div class="grid-2" style="gap: 0.75rem;">
+                            <div class="form-group">
+                                <label for="e-type">Type</label>
+                                <select id="e-type" class="form-control" onchange="majCategoriesEntretien(this.value)">
+                                    <option value="CORRECTIF">CORRECTIF (Panne / Problème)</option>
+                                    <option value="PREVENTIF">PREVENTIF (Révision / Contrôle)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="e-cat">Catégorie</label>
+                                <select id="e-cat" class="form-control">
+                                    <option value="PANNE">PANNE</option>
+                                    <option value="REPARATION">REPARATION</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="grid-2" style="gap: 0.75rem;">
+                            <div class="form-group">
+                                <label for="e-km">Kilométrage Actuel</label>
+                                <input type="number" id="e-km" class="form-control" min="0" required placeholder="ex: 125000">
+                            </div>
+                            <div class="form-group">
+                                <label for="e-date">Date</label>
+                                <input type="date" id="e-date" class="form-control" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="e-desc">Description du problème / intervention</label>
+                            <input type="text" id="e-desc" class="form-control" required placeholder="ex: Bruit anormal au freinage / Voyant moteur">
+                        </div>
+                        <button type="submit" class="btn btn-primary" style="width: 100%;">
+                            Signaler l'intervention
+                        </button>
+                    </form>
+
+                    <h3 style="font-size: 0.95rem; margin-bottom: 0.5rem;">Historique Véhicule</h3>
+                    <div style="overflow-x: auto; max-height: 250px; overflow-y: auto;">
+                        <table class="table-data">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Type</th>
+                                    <th>Catégorie</th>
+                                    <th>Statut</th>
+                                    <th>Description</th>
+                                </tr>
+                            </thead>
+                            <tbody id="entretiens-tbody">
+                                <tr><td colspan="5" style="text-align: center; color: var(--text-muted);">Aucun entretien répertorié.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/espace-chauffeur';
+        let currentChauffeur = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('c-date').value = today;
+            document.getElementById('e-date').value = today;
+
+            const token = localStorage.getItem('chauffeur_token');
+            if (token) {
+                chargerProfil();
+            } else {
+                afficherLogin();
+            }
+        });
+
+        function getAuthHeaders() {
+            const token = localStorage.getItem('chauffeur_token');
+            return {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            };
+        }
+
+        function notifier(msg, type = 'info') {
+            const el = document.getElementById('global-alert');
+            el.className = `alert alert-${type}`;
+            el.textContent = msg;
+            el.classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            setTimeout(() => { el.classList.add('hidden'); }, 6000);
+        }
+
+        function afficherLogin() {
+            document.getElementById('login-section').classList.remove('hidden');
+            document.getElementById('dashboard-section').classList.add('hidden');
+            document.getElementById('user-nav').classList.add('hidden');
+        }
+
+        function afficherDashboard() {
+            document.getElementById('login-section').classList.add('hidden');
+            document.getElementById('dashboard-section').classList.remove('hidden');
+            document.getElementById('user-nav').classList.remove('hidden');
+        }
+
+        function deconnexion() {
+            localStorage.removeItem('chauffeur_token');
+            currentChauffeur = null;
+            notifier("Vous avez été déconnecté avec succès.", "info");
+            afficherLogin();
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            const btn = document.getElementById('login-btn');
+            btn.disabled = true;
+            btn.textContent = "Connexion...";
+
+            const cin = document.getElementById('login-cin').value.trim();
+            const numero_permis = document.getElementById('login-permis').value.trim();
+
+            try {
+                const res = await fetch(`${API_BASE}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cin, numero_permis })
+                });
+
+                const data = await res.json();
+                if (!res.ok) {
+                    const detail = data.detail;
+                    const msg = typeof detail === 'object' ? (detail.message || detail.erreur) : (detail || "Échec de connexion.");
+                    notifier(`Erreur (${res.status}) : ${msg}`, 'danger');
+                    return;
+                }
+
+                localStorage.setItem('chauffeur_token', data.access_token);
+                currentChauffeur = data.chauffeur;
+                notifier(`Bienvenue ${data.chauffeur.prenom} ${data.chauffeur.nom} !`, 'success');
+                appliquerProfil(data.chauffeur);
+                afficherDashboard();
+                if (data.chauffeur.vehicule_id) {
+                    chargerEntretiens();
+                }
+            } catch (err) {
+                notifier("Impossible de joindre le serveur.", "danger");
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Se connecter";
+            }
+        }
+
+        async function chargerProfil() {
+            try {
+                const res = await fetch(`${API_BASE}/me`, { headers: getAuthHeaders() });
+                if (!res.ok) {
+                    deconnexion();
+                    return;
+                }
+                const data = await res.json();
+                currentChauffeur = data;
+                appliquerProfil(data);
+                afficherDashboard();
+                if (data.vehicule_id) {
+                    chargerEntretiens();
+                }
+            } catch (err) {
+                deconnexion();
+            }
+        }
+
+        function appliquerProfil(c) {
+            document.getElementById('nav-chauffeur-name').textContent = `${c.prenom} ${c.nom}`;
+            document.getElementById('info-nom').textContent = `${c.nom} ${c.prenom}`;
+            document.getElementById('info-cin').textContent = c.cin;
+            document.getElementById('info-tel').textContent = c.telephone || '-';
+            document.getElementById('info-permis').textContent = c.numero_permis;
+            document.getElementById('info-cat').textContent = `Catégorie ${c.categorie_permis}`;
+            document.getElementById('info-expiration').textContent = c.date_expiration_permis;
+
+            // Statut Badge
+            const sBadge = document.getElementById('statut-badge');
+            sBadge.textContent = c.statut;
+            sBadge.className = 'badge ' + (
+                c.statut === 'DISPONIBLE' ? 'badge-success' :
+                c.statut === 'EN_MISSION' ? 'badge-info' :
+                c.statut === 'EN_CONGE' ? 'badge-warning' : 'badge-danger'
+            );
+
+            document.getElementById('select-statut').value = c.statut;
+            toggleVehiculeInput(c.statut);
+            if (c.vehicule_id) {
+                document.getElementById('input-vehicule-id').value = c.vehicule_id;
+            }
+
+            // Bannière validité permis
+            const pBanner = document.getElementById('permis-banner');
+            if (c.permis_expire) {
+                pBanner.className = 'alert alert-danger';
+                pBanner.innerHTML = `<strong>⚠️ Permis de conduire expiré !</strong> Votre permis a expiré le ${c.date_expiration_permis}. Vous ne pouvez pas prendre de mission.`;
+            } else if (c.jours_avant_expiration <= 30) {
+                pBanner.className = 'alert alert-warning';
+                pBanner.innerHTML = `<strong>Attention :</strong> Votre permis expire bientôt (dans ${c.jours_avant_expiration} jour(s), le ${c.date_expiration_permis}).`;
+            } else {
+                pBanner.className = 'alert alert-success';
+                pBanner.innerHTML = `<strong>✓ Permis en règle :</strong> Valide pour encore ${c.jours_avant_expiration} jours (jusqu'au ${c.date_expiration_permis}).`;
+            }
+
+            // Véhicule assigné
+            const vEmpty = document.getElementById('vehicule-empty');
+            const vDetails = document.getElementById('vehicule-details');
+            const vBadge = document.getElementById('vehicule-statut-badge');
+
+            if (c.vehicule_id && c.vehicule) {
+                vEmpty.classList.add('hidden');
+                vDetails.classList.remove('hidden');
+                vBadge.textContent = c.vehicule.statut || 'ASSIGNÉ';
+                vBadge.className = 'badge badge-info';
+                document.getElementById('v-immat').textContent = c.vehicule.immatriculation || `ID #${c.vehicule_id}`;
+                document.getElementById('v-marque-modele').textContent = `${c.vehicule.marque || ''} ${c.vehicule.modele || ''}`.trim() || '-';
+                document.getElementById('v-km').textContent = c.vehicule.kilometrage ? `${c.vehicule.kilometrage} km` : '-';
+                document.getElementById('v-carburant').textContent = c.vehicule.typeCarburant || '-';
+                document.getElementById('v-annee').textContent = c.vehicule.annee || '-';
+                if (c.vehicule.kilometrage) {
+                    document.getElementById('c-km').value = c.vehicule.kilometrage;
+                    document.getElementById('e-km').value = c.vehicule.kilometrage;
+                }
+            } else {
+                vEmpty.classList.remove('hidden');
+                vDetails.classList.add('hidden');
+                vBadge.textContent = 'AUCUN';
+                vBadge.className = 'badge badge-neutral';
+            }
+        }
+
+        function toggleVehiculeInput(statut) {
+            const grp = document.getElementById('group-vehicule-id');
+            if (statut === 'EN_MISSION') {
+                grp.classList.remove('hidden');
+            } else {
+                grp.classList.add('hidden');
+            }
+        }
+
+        async function handleStatutUpdate(e) {
+            e.preventDefault();
+            const statut = document.getElementById('select-statut').value;
+            const vInput = document.getElementById('input-vehicule-id').value;
+            const vehicule_id = (statut === 'EN_MISSION' && vInput) ? parseInt(vInput) : null;
+
+            try {
+                const res = await fetch(`${API_BASE}/me/statut`, {
+                    method: 'PATCH',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ statut, vehicule_id })
+                });
+
+                const data = await res.json();
+                if (!res.ok) {
+                    const detail = data.detail;
+                    const msg = typeof detail === 'object' ? (detail.message || detail.erreur) : detail;
+                    notifier(`Erreur : ${msg}`, 'danger');
+                    return;
+                }
+
+                currentChauffeur = data;
+                appliquerProfil(data);
+                notifier("Statut mis à jour avec succès !", "success");
+                if (data.vehicule_id) {
+                    chargerEntretiens();
+                }
+            } catch (err) {
+                notifier("Erreur lors de la mise à jour du statut.", "danger");
+            }
+        }
+
+        async function handleCarburant(e) {
+            e.preventDefault();
+            if (!currentChauffeur || !currentChauffeur.vehicule_id) {
+                notifier("Vous devez être affecté à un véhicule pour déclarer un plein.", "warning");
+                return;
+            }
+
+            const body = {
+                date_plein: document.getElementById('c-date').value,
+                quantite_litres: parseFloat(document.getElementById('c-litres').value),
+                prix_litre: parseFloat(document.getElementById('c-prix').value),
+                kilometrage: parseInt(document.getElementById('c-km').value),
+                type_carburant: document.getElementById('c-type').value,
+                station: document.getElementById('c-station').value.trim() || null,
+                plein_complet: document.getElementById('c-complet').checked
+            };
+
+            try {
+                const res = await fetch(`${API_BASE}/me/carburant`, {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify(body)
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                    const detail = data.detail;
+                    const msg = typeof detail === 'object' ? (detail.message || JSON.stringify(detail)) : detail;
+                    notifier(`Erreur déclaration carburant : ${msg}`, "danger");
+                    return;
+                }
+                notifier("Plein de carburant enregistré avec succès !", "success");
+                document.getElementById('c-litres').value = '';
+                document.getElementById('c-prix').value = '';
+                document.getElementById('c-station').value = '';
+                chargerProfil(); // rafraîchir le km
+            } catch (err) {
+                notifier("Erreur réseau lors de la transmission au service Carburant.", "danger");
+            }
+        }
+
+        function majCategoriesEntretien(type) {
+            const catSelect = document.getElementById('e-cat');
+            catSelect.innerHTML = '';
+            if (type === 'CORRECTIF') {
+                catSelect.innerHTML = `
+                    <option value="PANNE">PANNE</option>
+                    <option value="REPARATION">REPARATION</option>
+                `;
+            } else {
+                catSelect.innerHTML = `
+                    <option value="VIDANGE">VIDANGE</option>
+                    <option value="PNEUS">PNEUS</option>
+                    <option value="FREINS">FREINS</option>
+                    <option value="VISITE_TECHNIQUE">VISITE_TECHNIQUE</option>
+                `;
+            }
+        }
+
+        async function handleEntretien(e) {
+            e.preventDefault();
+            if (!currentChauffeur || !currentChauffeur.vehicule_id) {
+                notifier("Vous devez être affecté à un véhicule pour signaler un entretien.", "warning");
+                return;
+            }
+
+            const body = {
+                type: document.getElementById('e-type').value,
+                categorie: document.getElementById('e-cat').value,
+                kilometrage: parseInt(document.getElementById('e-km').value),
+                date_entretien: document.getElementById('e-date').value,
+                description: document.getElementById('e-desc').value.trim(),
+                cout: 0.0
+            };
+
+            try {
+                const res = await fetch(`${API_BASE}/me/entretiens`, {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify(body)
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                    const detail = data.detail;
+                    const msg = typeof detail === 'object' ? (detail.message || JSON.stringify(detail)) : detail;
+                    notifier(`Erreur signalement entretien : ${msg}`, "danger");
+                    return;
+                }
+                notifier("Signalement d'entretien enregistré avec succès !", "success");
+                document.getElementById('e-desc').value = '';
+                chargerEntretiens();
+            } catch (err) {
+                notifier("Erreur réseau lors de la transmission au service Entretien.", "danger");
+            }
+        }
+
+        async function chargerEntretiens() {
+            const tbody = document.getElementById('entretiens-tbody');
+            if (!currentChauffeur || !currentChauffeur.vehicule_id) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">Aucun véhicule assigné.</td></tr>';
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/me/entretiens`, { headers: getAuthHeaders() });
+                if (!res.ok) return;
+                const items = await res.json();
+                if (!Array.isArray(items) || items.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">Aucun entretien répertorié pour ce véhicule.</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = items.map(item => `
+                    <tr>
+                        <td>${item.date_entretien || item.created_at || '-'}</td>
+                        <td><span class="badge ${item.type === 'PREVENTIF' ? 'badge-info' : 'badge-warning'}">${item.type || '-'}</span></td>
+                        <td><strong>${item.categorie || '-'}</strong></td>
+                        <td><span class="badge ${item.statut === 'Termine' || item.statut === 'TERMINE' ? 'badge-success' : 'badge-neutral'}">${item.statut || 'PLANIFIE'}</span></td>
+                        <td>${item.description || '-'}</td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--danger);">Erreur lors du chargement des entretiens.</td></tr>';
+            }
+        }
+    </script>
+</body>
+</html>
