@@ -7,6 +7,10 @@ use App\Enums\StatutEntretien;
 use App\Enums\TypeEntretien;
 use App\Models\DeclarationPanne;
 use App\Models\Entretien;
+use App\Models\EntretienHistorique;
+use App\Http\Resources\DeclarationPanneResource;
+use App\Support\AuthUser;
+use Illuminate\Support\Facades\DB;
 use App\Services\ChauffeurClient;
 use App\Services\VehiculeClient;
 use Illuminate\Http\JsonResponse;
@@ -31,12 +35,12 @@ class DeclarationPanneController extends Controller
             $query->where('vehicule_id', (int) $request->query('vehicule_id'));
         }
 
-        return response()->json(['data' => $query->get()]);
+        return response()->json(['data' => DeclarationPanneResource::collection($query->get())->resolve()]);
     }
 
     public function show(DeclarationPanne $declaration): JsonResponse
     {
-        return response()->json(['data' => $declaration]);
+        return response()->json(['data' => DeclarationPanneResource::make($declaration)->resolve()]);
     }
 
     public function store(Request $request): JsonResponse
@@ -68,40 +72,59 @@ class DeclarationPanneController extends Controller
             'created_by'        => (string) $data['chauffeur_id'],
         ]);
 
-        return response()->json(['data' => $declaration], 201);
+        return response()->json(['data' => DeclarationPanneResource::make($declaration)->resolve()], 201);
     }
 
-    public function prendreEnCharge(DeclarationPanne $declaration): JsonResponse
+    public function prendreEnCharge(Request $request, DeclarationPanne $declaration): JsonResponse
     {
         $this->verifierEnAttente($declaration);
+        $user = AuthUser::fromRequest($request);
 
-        $entretien = Entretien::create([
-            'vehicule_id'    => $declaration->vehicule_id,
-            'type'           => TypeEntretien::CORRECTIF,
-            'categorie'      => $declaration->categorie,
-            'description'    => $declaration->description,
-            'date_entretien' => now()->toDateString(),
-            'kilometrage'    => $declaration->kilometrage ?? 0,
-            'statut'         => StatutEntretien::Planifie,
-            'created_by'     => $declaration->created_by,
-        ]);
+        DB::transaction(function () use ($declaration, $user) {
+            $entretien = Entretien::create([
+                'vehicule_id'    => $declaration->vehicule_id,
+                'type'           => TypeEntretien::CORRECTIF,
+                'categorie'      => $declaration->categorie,
+                'description'    => $declaration->description,
+                'date_entretien' => now()->toDateString(),
+                'kilometrage'    => $declaration->kilometrage ?? 0,
+                'statut'         => StatutEntretien::Planifie,
+                'created_by'     => (string) $user->id,
+            ]);
+
+            EntretienHistorique::create([
+                'entretien_id'   => $entretien->id,
+                'ancien_statut'  => null,
+                'nouveau_statut' => StatutEntretien::Planifie->value,
+                'action_par'     => (string) $user->id,
+            ]);
+
+            $declaration->update([
+                'statut'       => DeclarationPanne::TRAITEE,
+                'entretien_id' => $entretien->id,
+                'traite_par'   => (string) $user->id,
+                'traite_at'    => now(),
+            ]);
+        });
+
+        return response()->json(['data' => DeclarationPanneResource::make($declaration->fresh())->resolve()]);
+    }
+
+    public function rejeter(Request $request, DeclarationPanne $declaration): JsonResponse
+    {
+        $this->verifierEnAttente($declaration);
+        $data = $request->validate(['motif' => ['nullable', 'string', 'max:500']]);
+        $user = AuthUser::fromRequest($request);
 
         $declaration->update([
-            'statut'       => DeclarationPanne::TRAITEE,
-            'entretien_id' => $entretien->id,
+            'statut'      => DeclarationPanne::REJETEE,
+            'traite_par'  => (string) $user->id,
+            'traite_at'   => now(),
+            'motif_rejet' => $data['motif'] ?? null,
         ]);
 
-        return response()->json(['data' => $declaration->fresh()]);
+        return response()->json(['data' => DeclarationPanneResource::make($declaration->fresh())->resolve()]);
     }
-
-    public function rejeter(DeclarationPanne $declaration): JsonResponse
-    {
-        $this->verifierEnAttente($declaration);
-        $declaration->update(['statut' => DeclarationPanne::REJETEE]);
-
-        return response()->json(['data' => $declaration->fresh()]);
-    }
-
     private function verifierEnAttente(DeclarationPanne $declaration): void
     {
         if ($declaration->statut !== DeclarationPanne::DECLAREE) {

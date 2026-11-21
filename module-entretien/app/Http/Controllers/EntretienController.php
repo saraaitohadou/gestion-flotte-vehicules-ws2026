@@ -10,6 +10,7 @@ use App\Http\Requests\UpdateEntretienRequest;
 use App\Http\Resources\EntretienResource;
 use App\Models\Alerte;
 use App\Models\Entretien;
+use App\Models\EntretienHistorique;
 use App\Services\EntretienService;
 use App\Services\VehiculeClient;
 use App\Support\AuthUser;
@@ -50,7 +51,7 @@ class EntretienController extends Controller
     {
         $this->limiterAuVehicule(AuthUser::fromRequest($request), $entretien->vehicule_id);
 
-        return new EntretienResource($entretien);
+        return new EntretienResource($entretien->load('historique'));
     }
 
     /** Historique complet (archives incluses). */
@@ -80,6 +81,8 @@ class EntretienController extends Controller
             'statut'     => StatutEntretien::Planifie,
             'created_by' => $user->id,
         ]);
+
+        $this->tracer($entretien, null, StatutEntretien::Planifie, $user);
 
         return (new EntretienResource($entretien))->response()->setStatusCode(201);
     }
@@ -128,6 +131,8 @@ class EntretienController extends Controller
             'date_debut' => isset($data['date_debut']) ? Carbon::parse($data['date_debut']) : now(),
             'started_by' => $user->id,
         ]);
+
+        $this->tracer($entretien, StatutEntretien::Planifie, StatutEntretien::EnCours, $user);
 
         return new EntretienResource($entretien);
     }
@@ -178,6 +183,8 @@ class EntretienController extends Controller
             ->whereNull('resolue_at')
             ->update(['resolue_at' => now()]);
 
+        $this->tracer($entretien, StatutEntretien::EnCours, StatutEntretien::Termine, $user);
+
         return new EntretienResource($entretien);
     }
 
@@ -195,7 +202,10 @@ class EntretienController extends Controller
         $entretien->update([
             'statut'       => StatutEntretien::Annule,
             'cancelled_by' => $user->id,
+            'cancelled_at' => now(),
         ]);
+
+        $this->tracer($entretien, $avant, StatutEntretien::Annule, $user);
 
         return new EntretienResource($entretien);
     }
@@ -243,6 +253,16 @@ class EntretienController extends Controller
         }
 
         return $user->vehiculeId;
+    }
+
+    private function tracer(Entretien $entretien, ?StatutEntretien $ancien, StatutEntretien $nouveau, AuthUser $user): void
+    {
+        EntretienHistorique::create([
+            'entretien_id'   => $entretien->id,
+            'ancien_statut'  => $ancien?->value,
+            'nouveau_statut' => $nouveau->value,
+            'action_par'     => (string) $user->id,
+        ]);
     }
 
     private function verifierTransition(Entretien $entretien, StatutEntretien $vers): void
