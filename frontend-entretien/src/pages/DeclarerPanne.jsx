@@ -1,0 +1,81 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { api } from "../api.js";
+import { useAuth } from "../components/AuthContext.jsx";
+import { useToast } from "../components/Toast.jsx";
+import { ROLES } from "../roles.js";
+
+export default function DeclarerPanne() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const toast = useToast();
+  const estChauffeur = user?.role === ROLES.CHAUF;
+
+  const [form, setForm] = useState({ vehicule_id: "", chauffeur_id: estChauffeur ? String(user.username) : "", categorie: "PANNE", description: "", kilometrage: "" });
+  const [errors, setErrors] = useState({});
+  const [globalError, setGlobalError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  const envoyer = async (ev) => {
+    ev.preventDefault();
+    setGlobalError("");
+    const e = {};
+    if (!form.vehicule_id) e.vehicule_id = "Vehicule obligatoire.";
+    if (!estChauffeur && !form.chauffeur_id) e.chauffeur_id = "Chauffeur obligatoire.";
+    if (!form.description.trim()) e.description = "Description obligatoire.";
+    if (form.kilometrage === "" || Number(form.kilometrage) < 0) e.kilometrage = "Kilometrage obligatoire (>= 0).";
+    setErrors(e);
+    if (Object.keys(e).length) return;
+
+    setSaving(true);
+    try {
+      await api.declarer({
+        vehicule_id: Number(form.vehicule_id),
+        chauffeur_id: Number(form.chauffeur_id),
+        categorie: form.categorie,
+        description: form.description,
+        kilometrage: Number(form.kilometrage),
+      });
+      toast("Panne declaree.");
+      navigate(estChauffeur ? "/pannes/mes-declarations" : "/entretien/declarations");
+    } catch (err) {
+      if (err.fields) setErrors(err.fields);
+      setGlobalError(err.code ? `${err.message} (${err.code})` : err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const champ = (nom, label, input) => (
+    <label className="field">
+      <span>{label}</span>
+      {input}
+      {errors[nom] && <span className="error small">{errors[nom]}</span>}
+    </label>
+  );
+
+  return (
+    <>
+      <div className="page-head"><h1>Declarer une panne</h1></div>
+      {globalError && <p className="alert alert-bad" role="alert">{globalError}</p>}
+      <form className="panel" onSubmit={envoyer} noValidate>
+        <fieldset disabled={saving} style={{ border: 0, padding: 0, margin: 0 }}>
+          <div className="grid-2">
+            {champ("vehicule_id", "Vehicule (id)", <input type="number" min="1" value={form.vehicule_id} onChange={(e) => set("vehicule_id", e.target.value)} />)}
+            {champ("chauffeur_id", "Chauffeur (id)", <input type="number" min="1" value={form.chauffeur_id} onChange={(e) => set("chauffeur_id", e.target.value)} disabled={estChauffeur} />)}
+            {champ("categorie", "Categorie", (
+              <select value={form.categorie} onChange={(e) => set("categorie", e.target.value)}>
+                <option value="PANNE">PANNE</option>
+                <option value="REPARATION">REPARATION</option>
+              </select>
+            ))}
+            {champ("kilometrage", "Kilometrage actuel", <input type="number" min="0" value={form.kilometrage} onChange={(e) => set("kilometrage", e.target.value)} />)}
+          </div>
+          {champ("description", "Description de la panne", <textarea rows="3" value={form.description} onChange={(e) => set("description", e.target.value)} />)}
+          <button className="btn btn-primary">{saving ? "Envoi..." : "Declarer"}</button>
+        </fieldset>
+      </form>
+    </>
+  );
+}

@@ -192,3 +192,6 @@ input:hover, select:hover { border-color: #8898ad; }
 @media (max-width: 960px) {
   .sidebar-foot { margin-top: 12px; flex-direction: row; align-items: center; justify-content: space-between; }
 }
+
+.grid-2 { margin-bottom: 12px; }
+form .btn-primary { margin-top: 4px; }
