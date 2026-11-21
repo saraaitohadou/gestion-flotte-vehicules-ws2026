@@ -9,6 +9,7 @@ import EntretienDetail from "./pages/EntretienDetail.jsx";
 import DeclarerPanne from "./pages/DeclarerPanne.jsx";
 import DeclarationsList from "./pages/DeclarationsList.jsx";
 import Alertes from "./pages/Alertes.jsx";
+import EntretienDashboard from "./pages/EntretienDashboard.jsx";
 import EntretiensList from "./pages/EntretiensList.jsx";
 import EntretienForm from "./pages/EntretienForm.jsx";
 import { STAFF, DECLARANTS, ROLES } from "./roles.js";
@@ -22,7 +23,7 @@ export default function App() {
           <Route path="/" element={<Home />} />
 
           <Route element={<RequireRole roles={STAFF} />}>
-            <Route path="/entretien" element={<Placeholder titre="Tableau de bord entretien" />} />
+            <Route path="/entretien" element={<EntretienDashboard />} />
             <Route path="/entretien/liste" element={<EntretiensList />} />
             <Route path="/entretien/nouveau" element={<EntretienForm />} />
             <Route path="/entretien/:id" element={<EntretienDetail />} />
