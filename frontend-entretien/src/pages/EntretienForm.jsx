@@ -4,6 +4,7 @@ import { api } from "../api.js";
 import { useToast } from "../components/Toast.jsx";
 import { CATEGORIES, TYPES } from "../utils.js";
 
+const aujourdhui = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 const VIDE = { vehicule_id: "", type: "PREVENTIF", categorie: "VIDANGE", description: "", date_entretien: "", kilometrage: "", cout: "" };
 
 export default function EntretienForm() {
@@ -19,6 +20,13 @@ export default function EntretienForm() {
   const [globalError, setGlobalError] = useState("");
   const [loading, setLoading] = useState(edition);
   const [saving, setSaving] = useState(false);
+  const [vehicules, setVehicules] = useState([]);
+
+  useEffect(() => {
+    api.vehicules()
+      .then((r) => setVehicules(r.data ?? []))
+      .catch((e) => setGlobalError(e.message));
+  }, []);
 
   useEffect(() => {
     if (!edition) return;
@@ -50,6 +58,7 @@ export default function EntretienForm() {
     if (!form.vehicule_id) e.vehicule_id = "Vehicule obligatoire.";
     if (!form.description.trim()) e.description = "Description obligatoire.";
     if (!form.date_entretien) e.date_entretien = "Date obligatoire.";
+    else if (!edition && form.date_entretien < aujourdhui()) e.date_entretien = "La date ne peut pas etre dans le passe.";
     if (form.kilometrage === "" || Number(form.kilometrage) < 0) e.kilometrage = "Kilometrage obligatoire (>= 0).";
     if (form.cout === "" || Number(form.cout) < 0) e.cout = "Cout obligatoire (>= 0).";
     return e;
@@ -110,8 +119,15 @@ export default function EntretienForm() {
       <form className="panel" onSubmit={envoyer} noValidate>
         <fieldset disabled={!modifiable || saving} style={{ border: 0, padding: 0, margin: 0 }}>
           <div className="grid-2">
-            {champ("vehicule_id", "Vehicule (id)",
-              <input type="number" min="1" value={form.vehicule_id} onChange={(e) => set("vehicule_id", e.target.value)} disabled={edition} />)}
+            {champ("vehicule_id", "Vehicule",
+              <select value={form.vehicule_id} onChange={(e) => set("vehicule_id", e.target.value)} disabled={edition}>
+                <option value="">-- Choisir un vehicule --</option>
+                {vehicules.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.immatriculation} - {v.marque} {v.modele} ({Number(v.kilometrage).toLocaleString("fr-FR")} km, {v.statut})
+                  </option>
+                ))}
+              </select>)}
             {champ("type", "Type",
               <select value={form.type} onChange={(e) => changerType(e.target.value)}>
                 {Object.entries(TYPES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
@@ -121,7 +137,7 @@ export default function EntretienForm() {
                 {CATEGORIES[form.type].map((c) => <option key={c} value={c}>{c}</option>)}
               </select>)}
             {champ("date_entretien", "Date",
-              <input type="date" value={form.date_entretien} onChange={(e) => set("date_entretien", e.target.value)} />)}
+              <input type="date" min={edition ? undefined : aujourdhui()} value={form.date_entretien} onChange={(e) => set("date_entretien", e.target.value)} />)}
             {champ("kilometrage", "Kilometrage",
               <input type="number" min="0" value={form.kilometrage} onChange={(e) => set("kilometrage", e.target.value)} />)}
             {champ("cout", "Cout (MAD)",

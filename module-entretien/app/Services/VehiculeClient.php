@@ -43,6 +43,23 @@ class VehiculeClient
         return $response->json();
     }
 
+    /** Liste des vehicules (pour le formulaire d'entretien). */
+    public function lister(): array
+    {
+        try {
+            $response = $this->http()->get($this->url('/vehicules'));
+        } catch (Throwable) {
+            throw new BusinessException('Service Vehicule injoignable.', 503, 'VEHICULE_SERVICE_INDISPONIBLE');
+        }
+
+        if (! $response->successful()) {
+            throw new BusinessException('Service Vehicule indisponible.', 503, 'VEHICULE_SERVICE_INDISPONIBLE');
+        }
+
+        $json = $response->json();
+        return array_values($json['data'] ?? $json ?? []);
+    }
+
     /** Refuse un vehicule inexistant, archive ou hors service. Retourne ses infos sinon. */
     public function verifierUtilisable(int $id): array
     {

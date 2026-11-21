@@ -20,7 +20,7 @@ class StoreEntretienRequest extends FormRequest
             'type'           => ['required', Rule::enum(TypeEntretien::class)],
             'categorie'      => ['required', 'string'],
             'description'    => ['required', 'string'],
-            'date_entretien' => ['required', 'date'],
+            'date_entretien' => ['required', 'date', 'after_or_equal:today'],
             'kilometrage'    => ['required', 'integer', 'min:0'],
             'cout'           => ['required', 'numeric', 'min:0'],
         ];
