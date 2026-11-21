@@ -10,6 +10,13 @@ CARBURANT_URL = os.getenv("CARBURANT_SERVICE_URL", "http://carburant-service:800
 ENTRETIEN_URL = os.getenv("ENTRETIEN_SERVICE_URL", "http://entretien-app:8004").rstrip("/")
 TIMEOUT = float(os.getenv("SERVICE_TIMEOUT", "4"))
 
+def _auth_headers(bearer_token: Optional[str] = None) -> dict:
+    headers = _service_headers()
+    if bearer_token:
+        val = bearer_token if bearer_token.lower().startswith("bearer ") else f"Bearer {bearer_token}"
+        headers["Authorization"] = val
+    return headers
+
 
 def _service_headers() -> dict:
     key = os.getenv("SERVICE_API_KEY", "")
@@ -36,10 +43,9 @@ def _appeler(methode: str, base_url: str, chemin: str, **kw) -> httpx.Response:
 # ==========================================
 # Service Véhicule
 # ==========================================
-
-def verifier_disponibilite(vehicule_id: int) -> None:
+def verifier_disponibilite(vehicule_id: int, bearer_token: Optional[str] = None) -> None:
     """GET /vehicules/{id}/disponibilite : 404, 409 ou 503 si le véhicule ne peut pas être affecté."""
-    r = _appeler("GET", VEHICULE_URL, f"/vehicules/{vehicule_id}/disponibilite")
+    r = _appeler("GET", VEHICULE_URL, f"/vehicules/{vehicule_id}/disponibilite", headers=_auth_headers(bearer_token))
     if r.status_code == 404:
         _erreur(404, "VEHICULE_INTROUVABLE", f"Véhicule {vehicule_id} introuvable.")
     if r.status_code != 200:
@@ -48,9 +54,15 @@ def verifier_disponibilite(vehicule_id: int) -> None:
         _erreur(409, "VEHICULE_INDISPONIBLE", f"Le véhicule {vehicule_id} n'est pas disponible.")
 
 
-def changer_statut_vehicule(vehicule_id: int, statut: str) -> None:
+def changer_statut_vehicule(vehicule_id: int, statut: str, bearer_token: Optional[str] = None) -> None:
     """PATCH /vehicules/{id}/statut (EN_MISSION au début, DISPONIBLE à la clôture)."""
-    r = _appeler("PATCH", VEHICULE_URL, f"/vehicules/{vehicule_id}/statut", json={"statut": statut})
+    r = _appeler(
+        "PATCH",
+        VEHICULE_URL,
+        f"/vehicules/{vehicule_id}/statut",
+        json={"statut": statut},
+        headers=_auth_headers(bearer_token),
+    )
     if r.status_code == 200:
         return
     if r.status_code == 404:
@@ -61,10 +73,10 @@ def changer_statut_vehicule(vehicule_id: int, statut: str) -> None:
     _erreur(503, "VEHICULE_SERVICE_INDISPONIBLE", f"Service Véhicule a répondu {r.status_code}.")
 
 
-def obtenir_vehicule(vehicule_id: int) -> Optional[Dict[str, Any]]:
+def obtenir_vehicule(vehicule_id: int, bearer_token: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """GET /vehicules/{id} : récupère les détails d'un véhicule."""
     try:
-        r = _appeler("GET", VEHICULE_URL, f"/vehicules/{vehicule_id}")
+        r = _appeler("GET", VEHICULE_URL, f"/vehicules/{vehicule_id}", headers=_auth_headers(bearer_token))
         if r.status_code == 200:
             return r.json()
         return None
@@ -72,10 +84,10 @@ def obtenir_vehicule(vehicule_id: int) -> Optional[Dict[str, Any]]:
         return None
 
 
-def lister_vehicules() -> List[Dict[str, Any]]:
-    """GET /vehicules : récupère la liste de tous les véhicules (avec fallback en liste vide)."""
+def lister_vehicules(bearer_token: Optional[str] = None) -> List[Dict[str, Any]]:
+    """GET /vehicules : récupère la liste de tous les véhicules."""
     try:
-        r = _appeler("GET", VEHICULE_URL, "/vehicules")
+        r = _appeler("GET", VEHICULE_URL, "/vehicules", headers=_auth_headers(bearer_token))
         if r.status_code == 200:
             data = r.json()
             if isinstance(data, list):
@@ -87,11 +99,11 @@ def lister_vehicules() -> List[Dict[str, Any]]:
         return []
 
 
-def lister_vehicules_disponibles() -> List[Dict[str, Any]]:
-    """Retourne la liste des véhicules enregistrés auprès de vehicule-service."""
-    return lister_vehicules()
-
-
+def lister_vehicules_disponibles(bearer_token: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Retourne les véhicules disponibles (ou enregistrés) auprès de vehicule-service."""
+    vehicules = lister_vehicules(bearer_token=bearer_token)
+    disponibles = [v for v in vehicules if str(v.get("statut", "")).upper() == "DISPONIBLE"]
+    return disponibles if disponibles else vehicules
 # ==========================================
 # Service Carburant
 # ==========================================
