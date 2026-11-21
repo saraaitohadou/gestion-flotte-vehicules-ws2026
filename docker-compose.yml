@@ -1,3 +1,7 @@
+x-auth-env: &auth-env
+  JWT_SECRET: ${JWT_SECRET}
+  SERVICE_API_KEY: ${SERVICE_API_KEY}
+
 services:
   # ==========================================
   # 1. BASE DE DONNÉES COMMUNE (MySQL)
@@ -8,19 +12,22 @@ services:
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_DATABASE: ${DB_NAME:-gestion_flotte}
     ports:
       - "${DB_HOST_PORT:-3306}:3306"
     volumes:
       - db_commune_data:/var/lib/mysql
-      - ./db/init:/docker-entrypoint-initdb.d
+      - ./db/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD"]
       interval: 5s
       timeout: 5s
       retries: 20
+      start_period: 20s
     networks:
-      - flotte-network
+      flotte-network:
+        aliases:
+          - db
 
   # ==========================================
   # 2. INTERFACE VISUELLE (phpMyAdmin)
@@ -42,7 +49,7 @@ services:
       - flotte-network
 
   # ==========================================
-  # 3. MODULE VÉHICULE (Votre service PHP)
+  # 3. MODULE VÉHICULE (Service PHP)
   # ==========================================
   vehicule-service:
     build:
@@ -53,13 +60,35 @@ services:
     ports:
       - "8001:80"
     environment:
+      <<: *auth-env
       DB_HOST: db-commune
       DB_PORT: 3306
-      DB_NAME: ${DB_NAME}
-      DB_USER: ${DB_USER}
+      DB_NAME: ${DB_NAME:-gestion_flotte}
+      DB_USER: ${DB_USER:-root}
       DB_PASS: ${DB_ROOT_PASSWORD}
-      JWT_SECRET: ${JWT_SECRET}
-      SERVICE_API_KEY: ${SERVICE_API_KEY}
+    depends_on:
+      db-commune:
+        condition: service_healthy
+    networks:
+      - flotte-network
+
+  # ==========================================
+  # 4. MODULE CHAUFFEUR (Service FastAPI)
+  # ==========================================
+  chauffeur-service:
+    build:
+      context: ./module-chauffeur
+      dockerfile: Dockerfile
+    container_name: flotte-chauffeur-service
+    restart: unless-stopped
+    ports:
+      - "8002:8000"
+    environment:
+      <<: *auth-env
+      DATABASE_URL: mysql+pymysql://${DB_USER:-root}:${DB_ROOT_PASSWORD}@db-commune:3306/${DB_NAME:-gestion_flotte}
+      ADMIN_USERNAME: ${ADMIN_USERNAME}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      VEHICULE_SERVICE_URL: http://vehicule-service
     depends_on:
       db-commune:
         condition: service_healthy
