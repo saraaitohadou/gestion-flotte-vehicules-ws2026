@@ -10,7 +10,7 @@ export function userFromToken(token) {
   try {
     const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
     if (payload.exp && payload.exp * 1000 < Date.now()) return null;
-    return { username: payload.sub, role: payload.role, exp: payload.exp };
+    return { username: payload.name ?? payload.sub, role: payload.role, exp: payload.exp };
   } catch {
     return null;
   }
