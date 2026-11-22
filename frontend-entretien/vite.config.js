@@ -9,9 +9,11 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5176,
+    strictPort: true,
     proxy: {
       // Login administrateur et chauffeur : service Chauffeur (FastAPI)
       "/api/auth": { target: AUTH, changeOrigin: true },
+      "/api/chauffeurs": { target: AUTH, changeOrigin: true },
       "/espace-chauffeur": { target: AUTH, changeOrigin: true },
       // Tout le reste (dont /api/gestionnaires) : service Entretien (Laravel)
       "/api": { target: ENTRETIEN, changeOrigin: true },
