@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0F766E">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>Carburant – Gestion de flotte</title>
+<link rel="stylesheet" href="style.css?v=2">
+</head>
+<body>
+<a class="skip-link" href="#vue">Aller au contenu principal</a>
+<div class="app">
+  <aside class="side">
+    <div class="brand">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#0F766E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16"/><path d="M3 21h12"/><path d="M7 8h4"/><path d="M14 9h2a2 2 0 0 1 2 2v5a1.5 1.5 0 0 0 3 0V8l-3-3"/></svg>
+      <span>Flotte · Carburant</span>
+      <button id="menu-mobile" class="menu-mobile" type="button" aria-expanded="false" aria-controls="navigation-principale" aria-label="Ouvrir le menu">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+    </div>
+    <nav id="navigation-principale" class="nav-list" aria-label="Navigation principale">
+      <a class="nav" data-route="" href="#/">Tableau de bord</a>
+      <a class="nav" data-route="pleins" href="#/pleins">Pleins</a>
+      <a class="nav" data-route="nouveau" href="#/nouveau">Nouveau plein</a>
+      <a class="nav" data-route="alertes" href="#/alertes">Alertes <span id="badge" class="badge" hidden>0</span></a>
+      <a class="nav" data-route="stats" href="#/stats">Statistiques</a>
+    </nav>
+  </aside>
+  <div class="main">
+    <header class="top">
+      <h1 id="titre" class="h1">Tableau de bord</h1>
+      <div class="top-actions">
+        <span class="version-badge" title="Version améliorée du frontend">NOUVELLE VERSION</span>
+        <a class="docs" href="/docs" target="_blank" rel="noopener">Documentation de l’API</a>
+      </div>
+    </header>
+    <div id="messages" role="status" aria-live="polite"></div>
+    <main id="vue" class="body" tabindex="-1"></main>
+  </div>
+</div>
+<script src="app.js?v=2"></script>
+</body>
+</html>

@@ -394,22 +394,22 @@ def test_ut_car_38_service_chauffeur_en_panne_donne_503(db):
 
 def test_ut_car_39_client_http_traduit_les_reponses(monkeypatch):
     # clients._verifier est le vrai code: seul httpx.get est simule
-    monkeypatch.setattr(clients.httpx, "get", lambda url, timeout: FausseReponse(200))
+    monkeypatch.setattr(clients.httpx, "get", lambda url, headers=None, timeout=None: FausseReponse(200))
     clients._verifier("http://x", "/vehicules/{id}", 1, "Vehicule")  # aucune exception
 
-    monkeypatch.setattr(clients.httpx, "get", lambda url, timeout: FausseReponse(404))
+    monkeypatch.setattr(clients.httpx, "get", lambda url, headers=None, timeout=None: FausseReponse(404))
     with pytest.raises(HTTPException) as e:
         clients._verifier("http://x", "/vehicules/{id}", 1, "Vehicule")
     assert e.value.status_code == 404
 
-    monkeypatch.setattr(clients.httpx, "get", lambda url, timeout: FausseReponse(500))
+    monkeypatch.setattr(clients.httpx, "get", lambda url, headers=None, timeout=None: FausseReponse(500))
     with pytest.raises(HTTPException) as e:
         clients._verifier("http://x", "/vehicules/{id}", 1, "Vehicule")
     assert e.value.status_code == 503
 
 
 def test_ut_car_40_client_http_injoignable_donne_503(monkeypatch):
-    def en_panne(url, timeout):
+    def en_panne(url, headers=None, timeout=None):
         raise httpx.ConnectError("connexion refusee")
 
     monkeypatch.setattr(clients.httpx, "get", en_panne)
@@ -438,3 +438,29 @@ def test_ut_car_34_droit_de_saisie_chauffeur_gestionnaire():
 @pytest.mark.skip(reason="RG-07 non developpee: pas d'authentification JWT ni de roles")
 def test_ut_car_35_lecture_seule_du_chauffeur():
     ...
+
+
+def test_ut_car_41_client_http_envoie_la_cle_de_service(monkeypatch):
+    recu = {}
+
+    def espion(url, headers=None, timeout=None):
+        recu["headers"] = headers
+        return FausseReponse(200)
+
+    monkeypatch.setenv("SERVICE_API_KEY", "ma-cle")
+    monkeypatch.setattr(clients.httpx, "get", espion)
+    clients._verifier("http://x", "/vehicules/{id}", 1, "Vehicule")
+    assert recu["headers"] == {"X-API-Key": "ma-cle"}
+
+
+def test_ut_car_42_client_http_sans_cle_n_envoie_pas_d_en_tete(monkeypatch):
+    recu = {}
+
+    def espion(url, headers=None, timeout=None):
+        recu["headers"] = headers
+        return FausseReponse(200)
+
+    monkeypatch.delenv("SERVICE_API_KEY", raising=False)
+    monkeypatch.setattr(clients.httpx, "get", espion)
+    clients._verifier("http://x", "/vehicules/{id}", 1, "Vehicule")
+    assert recu["headers"] == {}
