@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+import auth
 import clients
 import models
 import regles
@@ -125,6 +126,7 @@ def creer_chauffeur(
     data: schemas.ChauffeurCreate,
     db: Session = Depends(get_db),
     authorization: Optional[str] = Header(default=None),
+    _admin: dict = Depends(auth.require_admin),
 ):
     verifier_unicite(db, data.cin, data.numero_permis)
     if not regles.permis_est_valide(data.date_expiration_permis):
@@ -188,6 +190,7 @@ def modifier_chauffeur(
     data: schemas.ChauffeurUpdate,
     db: Session = Depends(get_db),
     authorization: Optional[str] = Header(default=None),
+    _admin: dict = Depends(auth.require_admin),
 ):
     chauffeur = (
         db.query(models.Chauffeur)
@@ -314,6 +317,8 @@ def changer_statut(
     id_chauffeur: int,
     data: schemas.ChauffeurStatutUpdate,
     db: Session = Depends(get_db),
+    authorization: Optional[str] = Header(default=None),
+    _admin: dict = Depends(auth.require_admin),
 ):
     chauffeur = get_chauffeur_actif_or_404(db, id_chauffeur)
 
@@ -326,29 +331,37 @@ def changer_statut(
             },
         )
 
-    if data.statut == models.StatutChauffeur.EN_MISSION and chauffeur.vehicule_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail={
-                "erreur": "VEHICULE_REQUIS_POUR_MISSION",
-                "message": "Impossible de passer un chauffeur EN_MISSION sans véhicule affecté. "
-                           "Utilisez POST /api/chauffeurs/{id}/affecter.",
-            },
-        )
-
     regles.verifier_changement_statut(
         chauffeur.statut, data.statut, chauffeur.date_expiration_permis
     )
 
+    ancien_vehicule_id = chauffeur.vehicule_id
+    if data.statut in (models.StatutChauffeur.DISPONIBLE, models.StatutChauffeur.EN_CONGE):
+        chauffeur.vehicule_id = None
+
     chauffeur.statut = data.statut
     db.commit()
     db.refresh(chauffeur)
+
+    if (
+        data.statut in (models.StatutChauffeur.DISPONIBLE, models.StatutChauffeur.EN_CONGE)
+        and ancien_vehicule_id is not None
+    ):
+        try:
+            clients.changer_statut_vehicule(
+                ancien_vehicule_id, "DISPONIBLE", bearer_token=authorization
+            )
+        except Exception:
+            pass
+
     return chauffeur
+
 @router.post("/{id_chauffeur}/reactiver", response_model=schemas.ChauffeurOut)
 def reactiver_chauffeur(
     id_chauffeur: int,
     data: Optional[schemas.ChauffeurReactivation] = None,
     db: Session = Depends(get_db),
+    _admin: dict = Depends(auth.require_admin),
 ):
     chauffeur = (
         db.query(models.Chauffeur)
@@ -397,7 +410,10 @@ def reactiver_chauffeur(
 
 
 @router.get("/vehicules-disponibles")
-def vehicules_disponibles(authorization: Optional[str] = Header(default=None)):
+def vehicules_disponibles(
+    authorization: Optional[str] = Header(default=None),
+    _admin: dict = Depends(auth.require_admin),
+):
     """Récupère la liste des véhicules depuis vehicule-service pour attribution."""
     return clients.lister_vehicules_disponibles(bearer_token=authorization)
 
@@ -533,6 +549,7 @@ def affecter_mission(
     data: schemas.AffectationRequest,
     db: Session = Depends(get_db),
     authorization: Optional[str] = Header(default=None),
+    _admin: dict = Depends(auth.require_admin),
 ):
     """Affecte un chauffeur à un véhicule : DISPONIBLE -> EN_MISSION des deux côtés."""
     chauffeur = (
@@ -595,6 +612,7 @@ def cloturer_mission(
     id_chauffeur: int,
     db: Session = Depends(get_db),
     authorization: Optional[str] = Header(default=None),
+    _admin: dict = Depends(auth.require_admin),
 ):
     """Fin de mission : le véhicule repasse DISPONIBLE, puis le chauffeur aussi."""
     chauffeur = get_chauffeur_actif_or_404(db, id_chauffeur)
@@ -627,7 +645,11 @@ def cloturer_mission(
 
 
 @router.delete("/{id_chauffeur}", status_code=status.HTTP_204_NO_CONTENT)
-def supprimer_chauffeur(id_chauffeur: int, db: Session = Depends(get_db)):
+def supprimer_chauffeur(
+    id_chauffeur: int,
+    db: Session = Depends(get_db),
+    _admin: dict = Depends(auth.require_admin),
+):
     """Suppression LOGIQUE : le chauffeur passe à INACTIF, la ligne reste en base."""
     chauffeur = get_chauffeur_actif_or_404(db, id_chauffeur)
 
