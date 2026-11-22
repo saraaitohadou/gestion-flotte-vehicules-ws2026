@@ -35,9 +35,7 @@ export default function Layout() {
               <NavLink to="/entretien/alertes">Alertes</NavLink>
             </>
           )}
-          {role === ROLES.ADMIN && (
-            <NavLink to="/pannes/nouvelle">Declarer une panne</NavLink>
-          )}
+          {role === ROLES.ADMIN && (<><NavLink to="/entretien/gestionnaires">Gestionnaires</NavLink><NavLink to="/pannes/nouvelle">Declarer une panne</NavLink></>)}
           {role === ROLES.CHAUF && (
             <>
               <NavLink to="/pannes/nouvelle">Declarer une panne</NavLink>
