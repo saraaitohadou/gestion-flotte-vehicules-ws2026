@@ -9,6 +9,7 @@ import EntretienDetail from "./pages/EntretienDetail.jsx";
 import DeclarerPanne from "./pages/DeclarerPanne.jsx";
 import DeclarationsList from "./pages/DeclarationsList.jsx";
 import Alertes from "./pages/Alertes.jsx";
+import Gestionnaires from "./pages/Gestionnaires.jsx";
 import EntretiensList from "./pages/EntretiensList.jsx";
 import EntretienForm from "./pages/EntretienForm.jsx";
 import { STAFF, DECLARANTS, ROLES } from "./roles.js";
@@ -29,6 +30,10 @@ export default function App() {
             <Route path="/entretien/:id/modifier" element={<EntretienForm />} />
             <Route path="/entretien/declarations" element={<DeclarationsList gestion />} />
             <Route path="/entretien/alertes" element={<Alertes />} />
+          </Route>
+
+          <Route element={<RequireRole roles={[ROLES.ADMIN]} />}>
+            <Route path="/entretien/gestionnaires" element={<Gestionnaires />} />
           </Route>
 
           <Route element={<RequireRole roles={DECLARANTS} />}>

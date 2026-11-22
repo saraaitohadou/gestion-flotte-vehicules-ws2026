@@ -10,9 +10,10 @@ export default defineConfig({
   server: {
     port: 5174,
     proxy: {
-      // Login : service Chauffeur (FastAPI)
+      // Login administrateur et chauffeur : service Chauffeur (FastAPI)
       "/api/auth": { target: AUTH, changeOrigin: true },
-      // Tout le reste : service Entretien (Laravel)
+      "/espace-chauffeur": { target: AUTH, changeOrigin: true },
+      // Tout le reste (dont /api/gestionnaires) : service Entretien (Laravel)
       "/api": { target: ENTRETIEN, changeOrigin: true },
     },
   },

@@ -35,7 +35,7 @@ function toError(status, body) {
   return new ApiError(`Le service ne repond pas correctement (code ${status}).`, status);
 }
 
-async function call(path, { method = "GET", body, params, secured = true } = {}) {
+async function call(path, { method = "GET", body, params, secured = true, base = BASE } = {}) {
   const qs = params
     ? "?" + new URLSearchParams(Object.entries(params).filter(([, v]) => v !== "" && v != null))
     : "";
@@ -46,7 +46,7 @@ async function call(path, { method = "GET", body, params, secured = true } = {})
 
   let res;
   try {
-    res = await fetch(`${BASE}${path}${qs}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
+    res = await fetch(`${base}${path}${qs}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
   } catch {
     throw new ApiError("Service injoignable. Verifiez que le conteneur est demarre.", 0);
   }
@@ -64,6 +64,14 @@ async function call(path, { method = "GET", body, params, secured = true } = {})
 
 export const api = {
   login: (username, password) => call("/auth/login", { method: "POST", body: { username, password }, secured: false }),
+  loginGestionnaire: (username, password) => call("/gestionnaires/login", { method: "POST", body: { username, password }, secured: false }),
+  loginChauffeur: (cin, numero_permis) => call("/espace-chauffeur/login", { method: "POST", body: { cin, numero_permis }, secured: false, base: "" }),
+
+  // Comptes gestionnaires (ADMIN)
+  gestionnaires: () => call("/gestionnaires"),
+  creerGestionnaire: (data) => call("/gestionnaires", { method: "POST", body: data }),
+  basculerGestionnaire: (id, actif) => call(`/gestionnaires/${id}/actif`, { method: "PATCH", body: { actif } }),
+  motDePasseGestionnaire: (id, password) => call(`/gestionnaires/${id}/mot-de-passe`, { method: "PATCH", body: { password } }),
 
   // Entretiens
   list: (params = {}) => call("/entretiens", { params }),
