@@ -16,7 +16,7 @@ services:
       DB_CONNECTION: mysql
       DB_HOST: host.docker.internal
       DB_PORT: "${DB_HOST_PORT:-3306}"
-      DB_DATABASE: entretien_db
+      DB_DATABASE: gestion_flotte
       DB_USERNAME: root
       DB_PASSWORD: "${DB_ROOT_PASSWORD:-changez_moi}"
       VEHICULE_CHECK: "true"
