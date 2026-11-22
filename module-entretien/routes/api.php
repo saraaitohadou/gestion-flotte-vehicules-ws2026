@@ -3,10 +3,13 @@
 use App\Http\Controllers\AlerteController;
 use App\Http\Controllers\DeclarationPanneController;
 use App\Http\Controllers\EntretienController;
+use App\Http\Controllers\GestionnaireController;
 use App\Http\Controllers\VehiculeController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', fn () => response()->json(['status' => 'ok', 'service' => 'entretien']));
+
+Route::post('/gestionnaires/login', [GestionnaireController::class, 'login']);
 
 Route::middleware('jwt')->group(function () {
 
@@ -37,4 +40,12 @@ Route::middleware('jwt')->group(function () {
     // Declaration de panne : CHAUFFEUR (+ ADMIN)
     Route::post('/declarations-panne', [DeclarationPanneController::class, 'store'])
         ->middleware('role:CHAUFFEUR,ADMINISTRATEUR');
+
+    // Comptes gestionnaires : ADMIN seulement
+    Route::middleware('role:ADMINISTRATEUR')->prefix('gestionnaires')->group(function () {
+        Route::get('/', [GestionnaireController::class, 'index']);
+        Route::post('/', [GestionnaireController::class, 'store']);
+        Route::patch('/{id}/actif', [GestionnaireController::class, 'basculer']);
+        Route::patch('/{id}/mot-de-passe', [GestionnaireController::class, 'motDePasse']);
+    });
 });

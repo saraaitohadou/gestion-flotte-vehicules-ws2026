@@ -22,4 +22,4 @@ class Chauffeur(Base):
     statut = Column(Enum(StatutChauffeur), nullable=False, default=StatutChauffeur.DISPONIBLE)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
-    vehicule_id = Column(Integer, nullable=True)  
+    vehicule_id = Column(Integer, nullable=True, index=True)   

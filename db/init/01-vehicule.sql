@@ -13,5 +13,5 @@ CREATE TABLE IF NOT EXISTS vehicules (
 
 INSERT INTO vehicules (immatriculation, marque, modele, annee, kilometrage, type_carburant, statut) VALUES
 ('12345-A-6', 'Dacia', 'Logan', 2021, 45200, 'Diesel', 'DISPONIBLE'),
-('67890-B-1', 'Renault', 'Clio', 2020, 62300, 'Essence', 'EN_MISSION'),
+('67890-B-1', 'Renault', 'Clio', 2020, 62300, 'Essence', 'DISPONIBLE'),
 ('24680-C-3', 'Toyota', 'Hilux', 2019, 98500, 'Diesel', 'EN_MAINTENANCE');
