@@ -2,16 +2,19 @@
 
 return [
 
-    // Service Véhicule (appels REST inter-services)
-    'vehicule_service' => [
-        'url'     => env('VEHICULE_SERVICE_URL', 'http://vehicule-mock:8002'),
-        'timeout' => (int) env('VEHICULE_SERVICE_TIMEOUT', 3),
-    ],
+    // Les réglages du service Véhicule (URL, préfixe, clé API, timeout)
+    // sont centralisés dans config/vehicule.php.
 
     // Seuils d'alerte (règle : 15 jours ou 500 km avant l'échéance)
     'alertes' => [
         'jours_avant' => (int) env('ALERTE_JOURS_AVANT', 15),
         'km_avant'    => (int) env('ALERTE_KM_AVANT', 500),
+    ],
+
+    // Saga Véhicule : au-delà de ce nombre de tentatives, la ligne passe en
+    // ECHEC_DEFINITIF (dead-letter) au lieu de rester bloquée EN_ATTENTE.
+    'synchronisation' => [
+        'tentatives_max' => max(1, (int) env('SYNCHRONISATION_TENTATIVES_MAX', 3)),
     ],
 
     /*

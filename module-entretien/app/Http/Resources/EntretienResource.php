@@ -13,7 +13,7 @@ class EntretienResource extends JsonResource
         return [
             'id'             => $this->id,
             'vehicule_id'    => $this->vehicule_id,
-            'type'           => $this->type->value,
+            'type'           => $this->type,
             'categorie'      => $this->categorie,
             'description'    => $this->description,
             'date_entretien' => $this->date_entretien?->toDateString(),

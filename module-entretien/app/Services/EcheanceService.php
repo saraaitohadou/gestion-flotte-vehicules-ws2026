@@ -47,16 +47,33 @@ class EcheanceService
                 }
             }
 
-            if ($retard) {
-                $this->creerAlerte($e, Alerte::EN_RETARD, $retard);
-                $stats['alertes_retard']++;
-            } elseif ($proche) {
-                $this->creerAlerte($e, Alerte::PROCHE, $proche);
-                $stats['alertes_proche']++;
+            // Un entretien ne peut avoir QU'UNE alerte ouverte : EN_RETARD
+            // l'emporte sur PROCHE, et toute alerte devenue sans objet est
+            // résolue automatiquement lors d'un recalcul (date ou catégorie).
+            $type    = $retard ? Alerte::EN_RETARD : ($proche ? Alerte::PROCHE : null);
+            $raisons = $retard ?: $proche;
+
+            $this->resoudreAlertesObsoletes($e, $type);
+
+            if ($type !== null) {
+                $this->creerAlerte($e, $type, $raisons);
+                $stats[$type === Alerte::EN_RETARD ? 'alertes_retard' : 'alertes_proche']++;
             }
         }
 
         return $stats;
+    }
+
+    /** Ferme les alertes ouvertes qui ne correspondent plus à l'état recalculé. */
+    private function resoudreAlertesObsoletes(Entretien $e, ?string $typeConserve): void
+    {
+        $requete = Alerte::where('entretien_id', $e->id)->whereNull('resolue_at');
+
+        if ($typeConserve !== null) {
+            $requete->where('type', '!=', $typeConserve);
+        }
+
+        $requete->update(['resolue_at' => now()]);
     }
 
     private function creerAlerte(Entretien $e, string $type, array $raisons): void
@@ -69,7 +86,8 @@ class EcheanceService
                 'message'       => "Véhicule #{$e->vehicule_id} - {$e->categorie} : " . implode(' ; ', $raisons),
                 'echeance_date' => $e->date_prochaine_echeance?->toDateString(),
                 'echeance_km'   => $e->km_prochaine_echeance,
-                'resolue_at'    => null,
+                // Ne jamais réouvrir une alerte résolue manuellement : updateOrCreate
+                // ne met à jour QUE le message/les échéances d'une alerte existante.
             ],
         );
     }
@@ -77,9 +95,10 @@ class EcheanceService
     /** Kilométrage actuel (null si le service Véhicule est injoignable : on ne bloque pas le CRON). */
     private function kmActuel(int $vehiculeId, array &$cache): ?int
     {
-        if (!array_key_exists($vehiculeId, $cache)) {
+        if (! array_key_exists($vehiculeId, $cache)) {
             try {
-                $cache[$vehiculeId] = $this->vehicules->find($vehiculeId)['kilometrage'];
+                $donnees             = $this->vehicules->find($vehiculeId);
+                $cache[$vehiculeId]  = isset($donnees['kilometrage']) ? (int) $donnees['kilometrage'] : null;
             } catch (BusinessException) {
                 $cache[$vehiculeId] = null;
             }

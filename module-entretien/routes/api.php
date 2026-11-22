@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AlerteController;
+use App\Http\Controllers\ChauffeurController;
 use App\Http\Controllers\DeclarationPanneController;
 use App\Http\Controllers\EntretienController;
 use App\Http\Controllers\GestionnaireController;
@@ -24,6 +25,7 @@ Route::middleware('jwt')->group(function () {
     Route::middleware('role:ADMINISTRATEUR,GESTIONNAIRE')->group(function () {
         Route::get('/alertes', [AlerteController::class, 'index']);
         Route::get('/vehicules', [VehiculeController::class, 'index']);
+        Route::get('/chauffeurs', [ChauffeurController::class, 'index']);
         Route::post('/entretiens', [EntretienController::class, 'store']);
         Route::put('/entretiens/{entretien}', [EntretienController::class, 'update']);
         Route::patch('/entretiens/{entretien}/demarrer', [EntretienController::class, 'demarrer']);

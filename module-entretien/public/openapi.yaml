@@ -1,45 +1,109 @@
 openapi: 3.0.3
 info:
   title: API Service Entretien
-  version: 1.0.0
-  description: |
-    Microservice Entretien de la gestion de flotte. Pas d'authentification.
-
-    Succes : {"data": ...}. Erreur : {"error": {"code", "message", "details"}}.
-
-    Codes d'erreur : NON_AUTHENTIFIE (401), ACCES_REFUSE (403), RESSOURCE_INTROUVABLE (404),
-    VEHICULE_INTROUVABLE (404), VEHICULE_INACTIF (422), KILOMETRAGE_INVALIDE (422),
-    VALIDATION_ERREUR (422), DATE_FIN_INVALIDE (422), TRANSITION_INTERDITE (409),
-    ENTRETIEN_DEJA_EN_COURS (409), ENTRETIEN_NON_MODIFIABLE (409), ENTRETIEN_ARCHIVE (409),
-    ARCHIVAGE_INTERDIT (409), DEJA_ARCHIVE (409), VEHICULE_SERVICE_INDISPONIBLE (503).
+  version: 1.2.0
+  description: >-
+    Microservice Entretien de la gestion de flotte (base commune gestion_flotte).
+    Authentification JWT HS256 obligatoire sauf /health et /gestionnaires/login.
+    Header: Authorization: Bearer <token>. Le secret JWT est partagé avec les
+    services Véhicule et Chauffeur. Claims: sub, role, vehicule_id (optionnel),
+    id_chauffeur (chauffeurs), exp. Rôles: ADMINISTRATEUR, GESTIONNAIRE,
+    CHAUFFEUR. Sans JWT, la réponse est 401 NON_AUTHENTIFIE (aucun privilège
+    implicite). Succes: {"data": ...}. Erreur:
+    {"error": {"code", "message", "details"}}.
 servers:
   - url: http://localhost:8004/api
 tags:
   - name: Entretiens
   - name: Alertes
+  - name: DeclarationsPanne
+  - name: Gestionnaires
+  - name: Referentiels
+security:
+  - bearerAuth: []
 paths:
   /health:
     get:
-      summary: Etat du service
+      tags: [Referentiels]
+      summary: Etat du service (public)
+      operationId: health
       security: []
       responses:
-        '200': { description: OK }
+        '200':
+          description: Service disponible
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+                  service: { type: string, example: entretien }
+        '500': { $ref: '#/components/responses/Erreur500' }
+  /gestionnaires/login:
+    post:
+      tags: [Gestionnaires]
+      summary: Connexion d'un gestionnaire et emission d'un JWT (public)
+      operationId: loginGestionnaire
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string, minLength: 3 }
+                password: { type: string, format: password, minLength: 8 }
+      responses:
+        '200':
+          description: JWT emis
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token: { type: string }
+                  token_type: { type: string, example: bearer }
+                  expires_in: { type: integer }
+        '400': { $ref: '#/components/responses/Erreur400' }
+        '401': { $ref: '#/components/responses/Erreur401' }
+        '403': { $ref: '#/components/responses/Erreur403' }
+        '422': { $ref: '#/components/responses/Erreur422' }
+        '429': { $ref: '#/components/responses/Erreur429' }
+        '500': { $ref: '#/components/responses/Erreur500' }
   /entretiens:
     get:
       tags: [Entretiens]
-      summary: Lister les entretiens (filtres + pagination)
+      summary: Lister les entretiens avec filtres et pagination
+      description: >-
+        Roles: ADMINISTRATEUR, GESTIONNAIRE, CHAUFFEUR. Un CHAUFFEUR est limite
+        a son propre vehicule. Un token sans role connu est refuse.
+      operationId: listerEntretiens
       parameters:
         - { name: vehicule_id, in: query, schema: { type: integer } }
         - { name: statut, in: query, schema: { $ref: '#/components/schemas/Statut' } }
         - { name: type, in: query, schema: { $ref: '#/components/schemas/Type' } }
         - { name: categorie, in: query, schema: { type: string } }
-        - { name: inclure_archives, in: query, schema: { type: boolean } }
-        - { name: per_page, in: query, schema: { type: integer, maximum: 100, default: 15 } }
+        - { name: inclure_archives, in: query, schema: { type: boolean, default: false } }
+        - { name: per_page, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 15 } }
       responses:
-        '200': { description: Liste paginee }
+        '200':
+          description: Liste paginee
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ListeEntretiens' }
+        '401': { $ref: '#/components/responses/Erreur401' }
+        '403': { $ref: '#/components/responses/Erreur403' }
+        '422': { $ref: '#/components/responses/Erreur422' }
+        '500': { $ref: '#/components/responses/Erreur500' }
     post:
       tags: [Entretiens]
-      summary: Creer un entretien (statut PLANIFIE)
+      summary: Creer un entretien PLANIFIE (ADMINISTRATEUR, GESTIONNAIRE)
+      description: >-
+        Un vehicule EN_MISSION, HORS_SERVICE ou ARCHIVE est refuse. Le
+        kilometrage saisi doit etre superieur ou egal a celui du vehicule.
+      operationId: creerEntretien
       requestBody:
         required: true
         content:
@@ -47,57 +111,90 @@ paths:
             schema: { $ref: '#/components/schemas/EntretienInput' }
       responses:
         '201':
-          description: Cree
+          description: Entretien cree
           content:
             application/json:
               schema: { $ref: '#/components/schemas/EntretienReponse' }
-        '404': { $ref: '#/components/responses/Erreur' }
-        '422': { $ref: '#/components/responses/Erreur' }
-        '503': { $ref: '#/components/responses/Erreur' }
+        '400': { $ref: '#/components/responses/Erreur400' }
+        '401': { $ref: '#/components/responses/Erreur401' }
+        '403': { $ref: '#/components/responses/Erreur403' }
+        '404': { $ref: '#/components/responses/Erreur404' }
+        '422': { $ref: '#/components/responses/Erreur422' }
+        '500': { $ref: '#/components/responses/Erreur500' }
+        '503': { $ref: '#/components/responses/Erreur503' }
   /entretiens/{id}:
     parameters:
       - { name: id, in: path, required: true, schema: { type: integer } }
     get:
       tags: [Entretiens]
       summary: Detail d'un entretien
+      description: >-
+        Roles: ADMINISTRATEUR, GESTIONNAIRE, CHAUFFEUR. Un CHAUFFEUR ne peut
+        consulter que les entretiens de son vehicule.
+      operationId: afficherEntretien
       responses:
         '200':
           description: OK
           content:
             application/json:
               schema: { $ref: '#/components/schemas/EntretienReponse' }
-        '404': { $ref: '#/components/responses/Erreur' }
+        '401': { $ref: '#/components/responses/Erreur401' }
+        '403': { $ref: '#/components/responses/Erreur403' }
+        '404': { $ref: '#/components/responses/Erreur404' }
+        '500': { $ref: '#/components/responses/Erreur500' }
     put:
       tags: [Entretiens]
-      summary: Modifier un entretien (PLANIFIE ou EN_COURS, non archive)
+      summary: Modifier un entretien PLANIFIE ou EN_COURS (ADMINISTRATEUR, GESTIONNAIRE)
+      description: >-
+        Un changement de categorie recalcule immediatement l'echeance et clot
+        les alertes ouvertes de l'ancienne categorie. Le kilometrage est
+        reverifie aupres du service Vehicule.
+      operationId: modifierEntretien
       requestBody:
+        required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/EntretienInput' }
+            schema: { $ref: '#/components/schemas/EntretienUpdate' }
       responses:
         '200':
           description: OK
           content:
             application/json:
               schema: { $ref: '#/components/schemas/EntretienReponse' }
-        '404': { $ref: '#/components/responses/Erreur' }
-        '409': { $ref: '#/components/responses/Erreur' }
-        '422': { $ref: '#/components/responses/Erreur' }
+        '400': { $ref: '#/components/responses/Erreur400' }
+        '401': { $ref: '#/components/responses/Erreur401' }
+        '403': { $ref: '#/components/responses/Erreur403' }
+        '404': { $ref: '#/components/responses/Erreur404' }
+        '409': { $ref: '#/components/responses/Erreur409' }
+        '422': { $ref: '#/components/responses/Erreur422' }
+        '500': { $ref: '#/components/responses/Erreur500' }
+        '503': { $ref: '#/components/responses/Erreur503' }
     delete:
       tags: [Entretiens]
-      summary: Archiver un entretien TERMINE ou ANNULE (jamais de suppression physique)
+      summary: Archiver un entretien TERMINE ou ANNULE (ADMINISTRATEUR uniquement)
+      description: Archivage logique, jamais de suppression physique.
+      operationId: archiverEntretien
       responses:
         '200':
-          description: Archive
+          description: Entretien archive
           content:
             application/json:
               schema: { $ref: '#/components/schemas/EntretienReponse' }
-        '404': { $ref: '#/components/responses/Erreur' }
-        '409': { $ref: '#/components/responses/Erreur' }
+        '401': { $ref: '#/components/responses/Erreur401' }
+        '403': { $ref: '#/components/responses/Erreur403' }
+        '404': { $ref: '#/components/responses/Erreur404' }
+        '409': { $ref: '#/components/responses/Erreur409' }
+        '500': { $ref: '#/components/responses/Erreur500' }
   /entretiens/{id}/demarrer:
     patch:
       tags: [Entretiens]
-      summary: PLANIFIE vers EN_COURS (le vehicule passe EN_MAINTENANCE)
+      summary: PLANIFIE vers EN_COURS (ADMINISTRATEUR, GESTIONNAIRE)
+      description: >-
+        Saga avec outbox. Le vehicule passe EN_MAINTENANCE apres le commit
+        local. Chaque operation est idempotente et suit sa propre tentative.
+        Le vehicule doit etre DISPONIBLE au demarrage (regle §4.4) : sinon
+        `VEHICULE_NON_DISPONIBLE` (409), sans ecriture locale ni ligne d'outbox.
+      operationId: demarrerEntretien
       parameters:
         - { name: id, in: path, required: true, schema: { type: integer } }
       requestBody:
@@ -113,14 +210,27 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/EntretienReponse' }
-        '404': { $ref: '#/components/responses/Erreur' }
-        '409': { $ref: '#/components/responses/Erreur' }
-        '422': { $ref: '#/components/responses/Erreur' }
-        '503': { $ref: '#/components/responses/Erreur' }
+        '400': { $ref: '#/components/responses/Erreur400' }
+        '401': { $ref: '#/components/responses/Erreur401' }
+        '403': { $ref: '#/components/responses/Erreur403' }
+        '404': { $ref: '#/components/responses/Erreur404' }
+        '409':
+          description: >-
+            `VEHICULE_NON_DISPONIBLE` si le vehicule n'est pas DISPONIBLE
+            (statut courant renvoye dans `error.details.statut_vehicule`) ;
+            sinon transition interdite, entretien deja en cours ou compensation ignoree.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Erreur' } } }
+        '422': { $ref: '#/components/responses/Erreur422' }
+        '500': { $ref: '#/components/responses/Erreur500' }
+        '503': { $ref: '#/components/responses/Erreur503' }
   /entretiens/{id}/terminer:
     patch:
       tags: [Entretiens]
-      summary: EN_COURS vers TERMINE (vehicule DISPONIBLE, km mis a jour, echeance recalculee)
+      summary: EN_COURS vers TERMINE (ADMINISTRATEUR, GESTIONNAIRE)
+      description: >-
+        Le vehicule repasse DISPONIBLE et son compteur est toujours mis a jour.
+        Le kilometrage fourni doit etre au moins egal a celui du vehicule.
+      operationId: terminerEntretien
       parameters:
         - { name: id, in: path, required: true, schema: { type: integer } }
       requestBody:
@@ -130,22 +240,30 @@ paths:
               type: object
               properties:
                 date_fin: { type: string, format: date-time, description: 'Optionnel, now() par defaut' }
-                kilometrage: { type: integer, example: 52300 }
-                cout: { type: number, example: 950.5 }
+                kilometrage: { type: integer, minimum: 0, example: 52300 }
+                cout: { type: number, format: double, minimum: 0, example: 950.5 }
       responses:
         '200':
           description: OK
           content:
             application/json:
               schema: { $ref: '#/components/schemas/EntretienReponse' }
-        '404': { $ref: '#/components/responses/Erreur' }
-        '409': { $ref: '#/components/responses/Erreur' }
-        '422': { $ref: '#/components/responses/Erreur' }
-        '503': { $ref: '#/components/responses/Erreur' }
+        '400': { $ref: '#/components/responses/Erreur400' }
+        '401': { $ref: '#/components/responses/Erreur401' }
+        '403': { $ref: '#/components/responses/Erreur403' }
+        '404': { $ref: '#/components/responses/Erreur404' }
+        '409': { $ref: '#/components/responses/Erreur409' }
+        '422': { $ref: '#/components/responses/Erreur422' }
+        '500': { $ref: '#/components/responses/Erreur500' }
+        '503': { $ref: '#/components/responses/Erreur503' }
   /entretiens/{id}/annuler:
     patch:
       tags: [Entretiens]
-      summary: "PLANIFIE ou EN_COURS vers ANNULE (EN_COURS: le vehicule repasse DISPONIBLE)"
+      summary: PLANIFIE ou EN_COURS vers ANNULE (ADMINISTRATEUR, GESTIONNAIRE)
+      description: >-
+        Si l'entretien etait EN_COURS, le vehicule repasse DISPONIBLE via la
+        saga. La compensation refuse d'ecraser un etat local plus recent.
+      operationId: annulerEntretien
       parameters:
         - { name: id, in: path, required: true, schema: { type: integer } }
       responses:
@@ -154,49 +272,404 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/EntretienReponse' }
-        '404': { $ref: '#/components/responses/Erreur' }
-        '409': { $ref: '#/components/responses/Erreur' }
-        '503': { $ref: '#/components/responses/Erreur' }
+        '401': { $ref: '#/components/responses/Erreur401' }
+        '403': { $ref: '#/components/responses/Erreur403' }
+        '404': { $ref: '#/components/responses/Erreur404' }
+        '409': { $ref: '#/components/responses/Erreur409' }
+        '422': { $ref: '#/components/responses/Erreur422' }
+        '500': { $ref: '#/components/responses/Erreur500' }
+        '503': { $ref: '#/components/responses/Erreur503' }
   /vehicules/{vehiculeId}/entretiens:
     get:
-      tags: [Entretiens]
-      summary: Historique complet (archives incluses) d'un vehicule
+      tags: [Entretiens, Referentiels]
+      summary: Historique complet d'un vehicule, archives incluses
+      description: >-
+        Roles: ADMINISTRATEUR, GESTIONNAIRE, CHAUFFEUR. Un CHAUFFEUR ne peut
+        consulter que son propre vehicule.
+      operationId: historiqueVehicule
       parameters:
         - { name: vehiculeId, in: path, required: true, schema: { type: integer } }
       responses:
-        '200': { description: OK }
+        '200':
+          description: Historique
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ListeEntretiensSimples' }
+        '401': { $ref: '#/components/responses/Erreur401' }
+        '403': { $ref: '#/components/responses/Erreur403' }
+        '500': { $ref: '#/components/responses/Erreur500' }
   /alertes:
     get:
       tags: [Alertes]
-      summary: Alertes de maintenance (PROCHE / EN_RETARD), non resolues par defaut
+      summary: Alertes de maintenance non resolues par defaut
+      description: >-
+        Roles: ADMINISTRATEUR, GESTIONNAIRE. PROCHE et EN_RETARD ne peuvent pas
+        etre ouvertes simultanement pour un meme entretien.
+      operationId: listerAlertes
       parameters:
         - { name: vehicule_id, in: query, schema: { type: integer } }
         - { name: type, in: query, schema: { type: string, enum: [PROCHE, EN_RETARD] } }
-        - { name: inclure_resolues, in: query, schema: { type: boolean } }
-        - { name: per_page, in: query, schema: { type: integer, maximum: 100, default: 15 } }
+        - { name: inclure_resolues, in: query, schema: { type: boolean, default: false } }
+        - { name: per_page, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 15 } }
       responses:
-        '200': { description: Liste paginee }
+        '200':
+          description: Liste paginee
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ListeAlertes' }
+        '401': { $ref: '#/components/responses/Erreur401' }
+        '403': { $ref: '#/components/responses/Erreur403' }
+        '422': { $ref: '#/components/responses/Erreur422' }
+        '500': { $ref: '#/components/responses/Erreur500' }
+  /declarations-panne:
+    get:
+      tags: [DeclarationsPanne]
+      summary: Lister les declarations de panne
+      description: >-
+        Roles: ADMINISTRATEUR, GESTIONNAIRE, CHAUFFEUR. Un CHAUFFEUR ne voit que
+        ses propres declarations.
+      operationId: listerDeclarations
+      parameters:
+        - { name: statut, in: query, schema: { $ref: '#/components/schemas/StatutDeclaration' } }
+        - { name: vehicule_id, in: query, schema: { type: integer } }
+      responses:
+        '200':
+          description: Liste
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ListeDeclarations' }
+        '401': { $ref: '#/components/responses/Erreur401' }
+        '403': { $ref: '#/components/responses/Erreur403' }
+        '422': { $ref: '#/components/responses/Erreur422' }
+        '500': { $ref: '#/components/responses/Erreur500' }
+    post:
+      tags: [DeclarationsPanne]
+      summary: Declarer une panne (CHAUFFEUR, ADMINISTRATEUR)
+      description: >-
+        Pour un CHAUFFEUR, chauffeur_id est ignore et derive du JWT. Le
+        kilometrage est obligatoire pour la conversion en entretien.
+      operationId: creerDeclaration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DeclarationInput' }
+      responses:
+        '201':
+          description: Declaration creee
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DeclarationReponse' }
+        '400': { $ref: '#/components/responses/Erreur400' }
+        '401': { $ref: '#/components/responses/Erreur401' }
+        '403': { $ref: '#/components/responses/Erreur403' }
+        '404': { $ref: '#/components/responses/Erreur404Chauffeur' }
+        '422': { $ref: '#/components/responses/Erreur422Chauffeur' }
+        '500': { $ref: '#/components/responses/Erreur500' }
+        '503': { $ref: '#/components/responses/Erreur503' }
+  /declarations-panne/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+    get:
+      tags: [DeclarationsPanne]
+      summary: Detail d'une declaration
+      description: Un CHAUFFEUR ne peut consulter que la sienne.
+      operationId: afficherDeclaration
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DeclarationReponse' }
+        '401': { $ref: '#/components/responses/Erreur401' }
+        '403': { $ref: '#/components/responses/Erreur403' }
+        '404': { $ref: '#/components/responses/Erreur404' }
+        '500': { $ref: '#/components/responses/Erreur500' }
+  /declarations-panne/{id}/prendre-en-charge:
+    patch:
+      tags: [DeclarationsPanne]
+      summary: Creer un entretien CORRECTIF et marquer la declaration TRAITEE
+      description: >-
+        Roles: ADMINISTRATEUR, GESTIONNAIRE. Verrou de ligne, update
+        conditionnel et index unique: une declaration ne produit qu'un seul
+        entretien. Le kilometrage declare est valide contre celui du vehicule;
+        un rejou renvoie la ressource existante sans creer de doublon.
+      operationId: prendreEnChargeDeclaration
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: OK (resource existante si l'operation a déjà ete jouee)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DeclarationReponse' }
+        '401': { $ref: '#/components/responses/Erreur401' }
+        '403': { $ref: '#/components/responses/Erreur403' }
+        '404': { $ref: '#/components/responses/Erreur404' }
+        '409': { $ref: '#/components/responses/Erreur409' }
+        '422': { $ref: '#/components/responses/Erreur422' }
+        '500': { $ref: '#/components/responses/Erreur500' }
+        '503': { $ref: '#/components/responses/Erreur503' }
+  /declarations-panne/{id}/rejeter:
+    patch:
+      tags: [DeclarationsPanne]
+      summary: Rejeter une declaration (ADMINISTRATEUR, GESTIONNAIRE)
+      operationId: rejeterDeclaration
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                motif: { type: string, maxLength: 500, nullable: true }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DeclarationReponse' }
+        '400': { $ref: '#/components/responses/Erreur400' }
+        '401': { $ref: '#/components/responses/Erreur401' }
+        '403': { $ref: '#/components/responses/Erreur403' }
+        '404': { $ref: '#/components/responses/Erreur404' }
+        '409': { $ref: '#/components/responses/Erreur409' }
+        '422': { $ref: '#/components/responses/Erreur422' }
+        '500': { $ref: '#/components/responses/Erreur500' }
+  /vehicules:
+    get:
+      tags: [Referentiels]
+      summary: Liste des vehicules (ADMINISTRATEUR, GESTIONNAIRE)
+      description: Proxie du service Vehicule.
+      operationId: listerVehicules
+      responses:
+        '200':
+          description: Liste
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { type: object } }
+        '401': { $ref: '#/components/responses/Erreur401' }
+        '403': { $ref: '#/components/responses/Erreur403' }
+        '500': { $ref: '#/components/responses/Erreur500' }
+        '503': { $ref: '#/components/responses/Erreur503' }
+  /chauffeurs:
+    get:
+      tags: [Referentiels]
+      summary: Liste des chauffeurs (ADMINISTRATEUR, GESTIONNAIRE)
+      description: Proxie du service Chauffeur.
+      operationId: listerChauffeurs
+      responses:
+        '200':
+          description: Liste
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { type: object } }
+        '401': { $ref: '#/components/responses/Erreur401' }
+        '403': { $ref: '#/components/responses/Erreur403' }
+        '500': { $ref: '#/components/responses/Erreur500' }
+        '503': { $ref: '#/components/responses/Erreur503Chauffeur' }
+  /gestionnaires:
+    get:
+      tags: [Gestionnaires]
+      summary: Lister les gestionnaires (ADMINISTRATEUR uniquement)
+      operationId: listerGestionnaires
+      responses:
+        '200':
+          description: Liste
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/Gestionnaire' } }
+        '401': { $ref: '#/components/responses/Erreur401' }
+        '403': { $ref: '#/components/responses/Erreur403' }
+        '500': { $ref: '#/components/responses/Erreur500' }
+    post:
+      tags: [Gestionnaires]
+      summary: Creer un gestionnaire (ADMINISTRATEUR uniquement)
+      description: Le role n'est pas fourni par le client, il est toujours GESTIONNAIRE.
+      operationId: creerGestionnaire
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GestionnaireInput' }
+      responses:
+        '201':
+          description: Cree
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GestionnaireReponse' }
+        '400': { $ref: '#/components/responses/Erreur400' }
+        '401': { $ref: '#/components/responses/Erreur401' }
+        '403': { $ref: '#/components/responses/Erreur403' }
+        '422': { $ref: '#/components/responses/Erreur422' }
+        '500': { $ref: '#/components/responses/Erreur500' }
+  /gestionnaires/{id}/actif:
+    patch:
+      tags: [Gestionnaires]
+      summary: Activer ou desactiver un gestionnaire (ADMINISTRATEUR)
+      operationId: basculerGestionnaire
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [actif]
+              properties:
+                actif: { type: boolean }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GestionnaireReponse' }
+        '400': { $ref: '#/components/responses/Erreur400' }
+        '401': { $ref: '#/components/responses/Erreur401' }
+        '403': { $ref: '#/components/responses/Erreur403' }
+        '404': { $ref: '#/components/responses/Erreur404Gestionnaire' }
+        '422': { $ref: '#/components/responses/Erreur422' }
+        '500': { $ref: '#/components/responses/Erreur500' }
+  /gestionnaires/{id}/mot-de-passe:
+    patch:
+      tags: [Gestionnaires]
+      summary: Changer le mot de passe d'un gestionnaire (ADMINISTRATEUR)
+      operationId: motDePasseGestionnaire
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password: { type: string, format: password, minLength: 8, maxLength: 200 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GestionnaireReponse' }
+        '400': { $ref: '#/components/responses/Erreur400' }
+        '401': { $ref: '#/components/responses/Erreur401' }
+        '403': { $ref: '#/components/responses/Erreur403' }
+        '404': { $ref: '#/components/responses/Erreur404Gestionnaire' }
+        '422': { $ref: '#/components/responses/Erreur422' }
+        '500': { $ref: '#/components/responses/Erreur500' }
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
   responses:
-    Erreur:
-      description: Erreur JSON structuree
+    Erreur400:
+      description: Requete mal formee
+      content: { application/json: { schema: { $ref: '#/components/schemas/Erreur' } } }
+    Erreur401:
+      description: Non authentifie ou identifiants invalides
+      content: { application/json: { schema: { $ref: '#/components/schemas/Erreur' } } }
+    Erreur403:
+      description: Role insuffisant ou acces refuse
+      content: { application/json: { schema: { $ref: '#/components/schemas/Erreur' } } }
+    Erreur404:
+      description: Ressource introuvable
+      content: { application/json: { schema: { $ref: '#/components/schemas/Erreur' } } }
+    Erreur409:
+      description: Conflit d'etat, transition interdite ou compensation ignoree
+      content: { application/json: { schema: { $ref: '#/components/schemas/Erreur' } } }
+    Erreur422:
+      description: Validation ou regle metier non respectee
+      content: { application/json: { schema: { $ref: '#/components/schemas/Erreur' } } }
+    Erreur429:
+      description: Trop de tentatives de connexion
+      content: { application/json: { schema: { $ref: '#/components/schemas/Erreur' } } }
+    Erreur500:
+      description: Erreur interne ou configuration manquante
+      content: { application/json: { schema: { $ref: '#/components/schemas/Erreur' } } }
+    Erreur503:
+      description: Service externe indisponible ou synchronisation differee
+      content: { application/json: { schema: { $ref: '#/components/schemas/Erreur' } } }
+    Erreur404Chauffeur:
+      description: Chauffeur introuvable (code CHAUFFEUR_INTROUVABLE)
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Erreur' }
+          example:
+            error:
+              code: CHAUFFEUR_INTROUVABLE
+              message: 'Chauffeur #999 introuvable.'
+              details: {}
+    Erreur404Gestionnaire:
+      description: Gestionnaire introuvable (code GESTIONNAIRE_INTROUVABLE)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erreur' }
+          example:
+            error:
+              code: GESTIONNAIRE_INTROUVABLE
+              message: 'Gestionnaire introuvable.'
+              details: {}
+    Erreur422Chauffeur:
+      description: Chauffeur non selectionnable (code CHAUFFEUR_NON_SELECTIONNABLE)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erreur' }
+          example:
+            error:
+              code: CHAUFFEUR_NON_SELECTIONNABLE
+              message: 'Chauffeur #1 non selectionnable (EN_CONGE).'
+              details: {}
+    Erreur503Chauffeur:
+      description: Service Chauffeur injoignable (code CHAUFFEUR_SERVICE_INDISPONIBLE)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erreur' }
+          example:
+            error:
+              code: CHAUFFEUR_SERVICE_INDISPONIBLE
+              message: 'Service Chauffeur injoignable.'
+              details: {}
   schemas:
-    Type: { type: string, enum: [PREVENTIF, CORRECTIF] }
+    Type:
+      type: string
+      description: >-
+        Types valides definis par config('entretien.types'), PREVENTIF et
+        CORRECTIF par defaut. Un type ajoute a la configuration est accepte.
     Statut: { type: string, enum: [PLANIFIE, EN_COURS, TERMINE, ANNULE] }
+    StatutDeclaration: { type: string, enum: [DECLAREE, TRAITEE, REJETEE] }
     EntretienInput:
       type: object
       required: [vehicule_id, type, categorie, description, date_entretien, kilometrage, cout]
       properties:
         vehicule_id: { type: integer, example: 1 }
         type: { $ref: '#/components/schemas/Type' }
-        categorie: { type: string, example: VIDANGE, description: "PREVENTIF: VIDANGE, PNEUS, FREINS, VISITE_TECHNIQUE - CORRECTIF: PANNE, REPARATION" }
+        categorie: { type: string, example: VIDANGE }
         description: { type: string, example: Vidange moteur + filtre a huile }
         date_entretien: { type: string, format: date, example: '2026-11-10' }
-        kilometrage: { type: integer, example: 52000 }
-        cout: { type: number, example: 850 }
+        kilometrage: { type: integer, minimum: 0, example: 52000 }
+        cout: { type: number, format: double, minimum: 0, example: 850 }
+    EntretienUpdate:
+      type: object
+      properties:
+        categorie: { type: string, example: FREINS, description: Declenche le recalcul de l'echeance }
+        description: { type: string }
+        date_entretien: { type: string, format: date }
+        kilometrage: { type: integer, minimum: 0 }
+        cout: { type: number, format: double, minimum: 0 }
     Entretien:
       type: object
       properties:
@@ -207,23 +680,148 @@ components:
         description: { type: string }
         date_entretien: { type: string, format: date }
         kilometrage: { type: integer }
-        cout: { type: number }
+        cout: { type: number, format: double }
         statut: { $ref: '#/components/schemas/Statut' }
         prochaine_echeance:
           type: object
           properties:
             date: { type: string, format: date, nullable: true }
             kilometrage: { type: integer, nullable: true }
+        date_debut: { type: string, format: date-time, nullable: true }
+        date_fin: { type: string, format: date-time, nullable: true }
+        date_annulation: { type: string, format: date-time, nullable: true }
+        archive: { type: boolean }
+        historique:
+          type: array
+          items: { $ref: '#/components/schemas/HistoriqueEntretien' }
+        responsables:
+          type: object
+          properties:
+            cree_par: { type: string, nullable: true }
+            demarre_par: { type: string, nullable: true }
+            termine_par: { type: string, nullable: true }
+            annule_par: { type: string, nullable: true }
+            archive_par: { type: string, nullable: true }
+        created_at: { type: string, format: date-time, nullable: true }
+        updated_at: { type: string, format: date-time, nullable: true }
+    HistoriqueEntretien:
+      type: object
+      properties:
+        ancien_statut: { type: string, nullable: true }
+        nouveau_statut: { type: string, nullable: true }
+        action_par: { type: string }
+        date: { type: string, format: date-time, nullable: true }
     EntretienReponse:
       type: object
       properties:
         data: { $ref: '#/components/schemas/Entretien' }
+    ListeEntretiensSimples:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Entretien' }
+    ListeEntretiens:
+      allOf:
+        - $ref: '#/components/schemas/ListeEntretiensSimples'
+        - type: object
+          properties:
+            links: { type: object }
+            meta: { type: object }
+    Alerte:
+      type: object
+      properties:
+        id: { type: integer }
+        entretien_id: { type: integer }
+        vehicule_id: { type: integer }
+        categorie: { type: string, nullable: true }
+        type: { type: string, enum: [PROCHE, EN_RETARD] }
+        message: { type: string }
+        echeance_date: { type: string, format: date, nullable: true }
+        echeance_km: { type: integer, nullable: true }
+        resolue_at: { type: string, format: date-time, nullable: true }
+    ListeAlertes:
+      type: object
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/Alerte' } }
+        links: { type: object }
+        meta: { type: object }
+    DeclarationInput:
+      type: object
+      required: [vehicule_id, categorie, description]
+      properties:
+        vehicule_id: { type: integer, example: 1 }
+        chauffeur_id: { type: integer, example: 7, description: Obligatoire pour un ADMIN, ignore pour un CHAUFFEUR }
+        categorie: { type: string, example: PANNE }
+        description: { type: string }
+        kilometrage: { type: integer, nullable: true, example: 50100 }
+    Declaration:
+      type: object
+      properties:
+        id: { type: integer }
+        vehicule_id: { type: integer }
+        chauffeur_id: { type: integer }
+        categorie: { type: string }
+        description: { type: string }
+        kilometrage: { type: integer, nullable: true }
+        statut: { $ref: '#/components/schemas/StatutDeclaration' }
+        chauffeur_verifie: { type: boolean }
+        entretien_id: { type: integer, nullable: true }
+        traite_par: { type: string, nullable: true }
+        traite_at: { type: string, format: date-time, nullable: true }
+        motif_rejet: { type: string, nullable: true }
+        created_by: { type: string, nullable: true }
+        created_at: { type: string, format: date-time, nullable: true }
+    DeclarationReponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/Declaration' }
+    ListeDeclarations:
+      type: object
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/Declaration' } }
+    GestionnaireInput:
+      type: object
+      required: [username, password]
+      properties:
+        username: { type: string, minLength: 3, maxLength: 60 }
+        password: { type: string, format: password, minLength: 8, maxLength: 200 }
+    Gestionnaire:
+      type: object
+      properties:
+        id: { type: integer }
+        username: { type: string }
+        actif: { type: boolean }
+        cree_par: { type: string, nullable: true }
+    GestionnaireReponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/Gestionnaire' }
     Erreur:
       type: object
       properties:
         error:
           type: object
           properties:
-            code: { type: string, example: TRANSITION_INTERDITE }
+            code:
+              type: string
+              description: >-
+                Codes possibles: NON_AUTHENTIFIE, TOKEN_INVALIDE, TOKEN_EXPIRE,
+                IDENTIFIANTS_INVALIDES, COMPTE_DESACTIVE, TROP_DE_TENTATIVES,
+                ACCES_INTERDIT, ACCES_REFUSE, IDENTITE_CHAUFFEUR_MANQUANTE,
+                RESSOURCE_INTROUVABLE, GESTIONNAIRE_INTROUVABLE,
+                CHAUFFEUR_INTROUVABLE, CHAUFFEUR_NON_SELECTIONNABLE,
+                CHAUFFEUR_SERVICE_INDISPONIBLE, CONFIG_MANQUANTE, VALIDATION_ERREUR,
+                VEHICULE_INTROUVABLE, VEHICULE_INACTIF, VEHICULE_EN_MISSION,
+                VEHICULE_NON_DISPONIBLE, VEHICULE_SERVICE_INDISPONIBLE, VEHICULE_MISE_A_JOUR_REFUSEE,
+                KILOMETRAGE_INVALIDE, KILOMETRAGE_DECLARATION_MANQUANT,
+                KILOMETRAGE_VEHICULE_INDISPONIBLE, DATE_FIN_INVALIDE,
+                TRANSITION_INTERDITE, ENTRETIEN_DEJA_EN_COURS,
+                ENTRETIEN_NON_MODIFIABLE, ENTRETIEN_ARCHIVE, ARCHIVAGE_INTERDIT,
+                DEJA_ARCHIVE, DECLARATION_DEJA_TRAITEE, DECLARATION_CONFLIT,
+                COMPENSATION_IGNOREE, SYNCHRONISATION_VEHICULE_ECHOUEE,
+                SYNCHRONISATION_VEHICULE_EN_ATTENTE,
+                SYNCHRONISATION_TENTATIVES_EPUISEES.
+              example: TRANSITION_INTERDITE
             message: { type: string }
             details: { type: object }
