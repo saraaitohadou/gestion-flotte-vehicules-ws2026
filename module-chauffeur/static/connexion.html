@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connexion Flotte - Chauffeur ou Administrateur</title>
+    <style>
+        :root {
+            --primary: #0b6e8a;
+            --primary-hover: #095a72;
+            --ink: #15233a;
+            --muted: #5d6b7e;
+            --bg: #f1f5f9;
+            --card-bg: #ffffff;
+            --border: #e2e8f0;
+            --danger: #dc2626;
+            --danger-bg: #fee2e2;
+            --success: #16a34a;
+            --radius: 12px;
+            --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--ink);
+            color: #1e293b;
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 1.5rem;
+        }
+
+        .login-card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            width: min(440px, 100%);
+            padding: 2.25rem;
+        }
+
+        .brand-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .brand-badge {
+            display: grid;
+            place-items: center;
+            width: 42px;
+            height: 42px;
+            border-radius: 10px;
+            background: #f2b33d;
+            color: var(--ink);
+            font-weight: 800;
+            font-size: 1.35rem;
+        }
+
+        .brand-title strong {
+            display: block;
+            font-size: 1.2rem;
+            color: var(--ink);
+        }
+
+        .brand-title span {
+            font-size: 0.85rem;
+            color: var(--muted);
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--ink);
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            font-size: 0.875rem;
+            color: var(--muted);
+            margin-bottom: 1.5rem;
+        }
+
+        /* Sélecteur de rôle */
+        .role-tabs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 4px;
+            gap: 4px;
+            margin-bottom: 1.5rem;
+        }
+
+        .role-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.65rem;
+            border: none;
+            background: transparent;
+            color: var(--muted);
+            font-size: 0.9rem;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .role-btn:hover {
+            color: var(--ink);
+        }
+
+        .role-btn.active {
+            background: #ffffff;
+            color: var(--primary);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+        }
+
+        .form-group {
+            margin-bottom: 1.15rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.4rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--ink);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.65rem 0.85rem;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            font-size: 0.9rem;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .form-control:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(11, 110, 138, 0.15);
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            margin-top: 0.5rem;
+        }
+
+        .btn-submit:hover:not(:disabled) {
+            background-color: var(--primary-hover);
+        }
+
+        .btn-submit:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        .alert {
+            padding: 0.85rem 1rem;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            margin-bottom: 1.25rem;
+            display: none;
+            line-height: 1.4;
+        }
+
+        .alert.visible {
+            display: block;
+        }
+
+        .alert-danger {
+            background-color: var(--danger-bg);
+            color: #991b1b;
+            border: 1px solid #f87171;
+        }
+
+        .alert-success {
+            background-color: #dcfce7;
+            color: #166534;
+            border: 1px solid #86efac;
+        }
+
+        .hint {
+            font-size: 0.75rem;
+            color: var(--muted);
+            margin-top: 0.35rem;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="login-card">
+        <div class="brand-header">
+            <div class="brand-badge">F</div>
+            <div class="brand-title">
+                <strong>Gestion de Flotte</strong>
+                <span>Portail d'authentification</span>
+            </div>
+        </div>
+
+        <h1>Connexion</h1>
+        <p class="subtitle" id="role-subtitle">Sélectionnez votre rôle pour accéder à votre espace dédié.</p>
+
+        <!-- Sélecteur de rôle -->
+        <div class="role-tabs">
+            <button type="button" class="role-btn active" id="tab-chauffeur" onclick="switchRole('chauffeur')">
+                <span>🚚</span> Chauffeur
+            </button>
+            <button type="button" class="role-btn" id="tab-admin" onclick="switchRole('admin')">
+                <span>🛡️</span> Administrateur
+            </button>
+        </div>
+
+        <!-- Alerte d'erreur -->
+        <div id="alert-box" class="alert alert-danger" role="alert"></div>
+
+        <form id="login-form" onsubmit="handleFormSubmit(event)">
+
+            <!-- Champs spécifiques au Chauffeur -->
+            <div id="fields-chauffeur">
+                <div class="form-group">
+                    <label for="input-cin">CIN Conducteur</label>
+                    <input type="text" id="input-cin" class="form-control" placeholder="ex: AB123456" autocomplete="username">
+                    <div class="hint">1 ou 2 lettres suivies de 5 ou 6 chiffres</div>
+                </div>
+                <div class="form-group">
+                    <label for="input-permis">Numéro de Permis</label>
+                    <input type="text" id="input-permis" class="form-control" placeholder="ex: 12/34567" autocomplete="current-password">
+                </div>
+            </div>
+
+            <!-- Champs spécifiques à l'Administrateur -->
+            <div id="fields-admin" class="hidden">
+                <div class="form-group">
+                    <label for="input-username">Nom d'utilisateur</label>
+                    <input type="text" id="input-username" class="form-control" placeholder="ex: admin" autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label for="input-password">Mot de passe</label>
+                    <input type="password" id="input-password" class="form-control" placeholder="••••••••" autocomplete="current-password">
+                </div>
+            </div>
+
+            <button type="submit" id="btn-submit" class="btn-submit">
+                Se connecter en tant que Chauffeur
+            </button>
+        </form>
+    </div>
+
+    <script>
+        let currentRole = 'chauffeur';
+
+        function switchRole(role) {
+            currentRole = role;
+            hideAlert();
+
+            const tabChauffeur = document.getElementById('tab-chauffeur');
+            const tabAdmin = document.getElementById('tab-admin');
+            const fieldsChauffeur = document.getElementById('fields-chauffeur');
+            const fieldsAdmin = document.getElementById('fields-admin');
+            const btnSubmit = document.getElementById('btn-submit');
+            const subtitle = document.getElementById('role-subtitle');
+
+            if (role === 'chauffeur') {
+                tabChauffeur.classList.add('active');
+                tabAdmin.classList.remove('active');
+                fieldsChauffeur.classList.remove('hidden');
+                fieldsAdmin.classList.add('hidden');
+                btnSubmit.textContent = "Se connecter en tant que Chauffeur";
+                subtitle.textContent = "Accédez à votre espace chauffeur avec votre CIN et numéro de permis.";
+            } else {
+                tabAdmin.classList.add('active');
+                tabChauffeur.classList.remove('active');
+                fieldsAdmin.classList.remove('hidden');
+                fieldsChauffeur.classList.add('hidden');
+                btnSubmit.textContent = "Se connecter en tant qu'Administrateur";
+                subtitle.textContent = "Accédez à l'interface de gestion de flotte avec vos identifiants admin.";
+            }
+        }
+
+        function showAlert(msg, isSuccess = false) {
+            const el = document.getElementById('alert-box');
+            el.className = isSuccess ? 'alert alert-success visible' : 'alert alert-danger visible';
+            el.textContent = msg;
+        }
+
+        function hideAlert() {
+            const el = document.getElementById('alert-box');
+            el.classList.remove('visible');
+        }
+
+        async function handleFormSubmit(e) {
+            e.preventDefault();
+            hideAlert();
+
+            const btn = document.getElementById('btn-submit');
+            btn.disabled = true;
+
+            if (currentRole === 'chauffeur') {
+                const cin = document.getElementById('input-cin').value.trim();
+                const numero_permis = document.getElementById('input-permis').value.trim();
+
+                if (!cin || !numero_permis) {
+                    showAlert("Veuillez renseigner à la fois votre CIN et votre numéro de permis.");
+                    btn.disabled = false;
+                    return;
+                }
+
+                btn.textContent = "Vérification chauffeur...";
+                try {
+                    const res = await fetch('/espace-chauffeur/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ cin, numero_permis })
+                    });
+
+                    const data = await res.json();
+                    if (!res.ok) {
+                        if (res.status === 403) {
+                            showAlert("Accès refusé : votre compte chauffeur est inactif. Contactez l'administrateur.");
+                        } else if (res.status === 401) {
+                            showAlert("Identifiants incorrects : CIN ou numéro de permis invalide.");
+                        } else {
+                            const detail = data.detail;
+                            const msg = typeof detail === 'object' ? (detail.message || detail.erreur) : detail;
+                            showAlert(`Erreur (${res.status}) : ${msg || "Échec de connexion."}`);
+                        }
+                        btn.disabled = false;
+                        btn.textContent = "Se connecter en tant que Chauffeur";
+                        return;
+                    }
+
+                    // Enregistrement du token et redirection vers l'espace chauffeur
+                    localStorage.setItem('chauffeur_token', data.access_token);
+                    localStorage.setItem('chauffeur_role', 'CHAUFFEUR');
+                    showAlert("Connexion réussie ! Redirection vers l'espace chauffeur...", true);
+                    setTimeout(() => {
+                        window.location.href = '/espace-chauffeur';
+                    }, 600);
+                } catch (err) {
+                    showAlert("Erreur réseau : impossible de joindre le serveur. Vérifiez votre connexion.");
+                    btn.disabled = false;
+                    btn.textContent = "Se connecter en tant que Chauffeur";
+                }
+
+            } else {
+                // Rôle Admin
+                const username = document.getElementById('input-username').value.trim();
+                const password = document.getElementById('input-password').value;
+
+                if (!username || !password) {
+                    showAlert("Veuillez renseigner votre nom d'utilisateur et votre mot de passe.");
+                    btn.disabled = false;
+                    return;
+                }
+
+                btn.textContent = "Connexion admin...";
+                try {
+                    // Appel vers /api/auth/login (ou /auth/login)
+                    const res = await fetch('/api/auth/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password })
+                    });
+
+                    const data = await res.json();
+                    if (!res.ok) {
+                        if (res.status === 401) {
+                            showAlert("Identifiant ou mot de passe administrateur incorrect.");
+                        } else if (res.status === 403) {
+                            showAlert("Accès refusé : ce compte ne dispose pas des droits administrateur.");
+                        } else {
+                            const detail = data.detail;
+                            const msg = typeof detail === 'object' ? (detail.message || detail.erreur) : detail;
+                            showAlert(`Erreur (${res.status}) : ${msg || "Échec de connexion."}`);
+                        }
+                        btn.disabled = false;
+                        btn.textContent = "Se connecter en tant qu'Administrateur";
+                        return;
+                    }
+
+                    // Enregistrement du token pour l'interface React
+                    localStorage.setItem('flotte.token', data.access_token);
+                    localStorage.setItem('flotte.role', 'ADMINISTRATEUR');
+                    showAlert("Connexion administrateur réussie ! Redirection...", true);
+                    setTimeout(() => {
+                        window.location.href = 'http://localhost:5173/chauffeurs';
+                    }, 600);
+                } catch (err) {
+                    showAlert("Erreur réseau : impossible de contacter le service d'authentification.");
+                    btn.disabled = false;
+                    btn.textContent = "Se connecter en tant qu'Administrateur";
+                }
+            }
+        }
+    </script>
+</body>
+</html>

@@ -77,4 +77,6 @@ export const api = {
   permisExpires: (jours = 30) => request("/permis-expires", { params: { jours } }),
   eligibilite: (id) => request(`/${id}/eligibilite`),
   compatibilite: (id, categorie_vehicule) => request(`/${id}/compatibilite`, { params: { categorie_vehicule } }),
+  vehicules: () => request("/vehicules-disponibles").catch(() => []),
+  loginChauffeur: (cin, numero_permis) => call("/espace-chauffeur/login", { method: "POST", body: { cin, numero_permis }, secured: false }),
 };

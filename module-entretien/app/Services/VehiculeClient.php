@@ -14,7 +14,7 @@ class VehiculeClient
 
     private function http(): PendingRequest
     {
-        return Http::timeout((int) config('entretien.vehicule_service.timeout', 3))->acceptJson();
+        return Http::timeout((int) config('entretien.vehicule_service.timeout', 3))->acceptJson()->withHeaders(['X-API-Key' => (string) config('vehicule.api_key', '')]);
     }
 
     private function url(string $path): string
@@ -41,6 +41,23 @@ class VehiculeClient
         }
 
         return $response->json();
+    }
+
+    /** Liste des vehicules (pour le formulaire d'entretien). */
+    public function lister(): array
+    {
+        try {
+            $response = $this->http()->get($this->url('/vehicules'));
+        } catch (Throwable) {
+            throw new BusinessException('Service Vehicule injoignable.', 503, 'VEHICULE_SERVICE_INDISPONIBLE');
+        }
+
+        if (! $response->successful()) {
+            throw new BusinessException('Service Vehicule indisponible.', 503, 'VEHICULE_SERVICE_INDISPONIBLE');
+        }
+
+        $json = $response->json();
+        return array_values($json['data'] ?? $json ?? []);
     }
 
     /** Refuse un vehicule inexistant, archive ou hors service. Retourne ses infos sinon. */

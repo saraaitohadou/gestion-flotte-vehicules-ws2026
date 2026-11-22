@@ -15,6 +15,7 @@ class DeclarationPanne extends Model
     protected $fillable = [
         'vehicule_id', 'chauffeur_id', 'categorie', 'description', 'kilometrage',
         'statut', 'chauffeur_verifie', 'entretien_id', 'created_by',
+        'traite_par', 'traite_at', 'motif_rejet',
     ];
 
     protected $attributes = [
@@ -24,6 +25,6 @@ class DeclarationPanne extends Model
 
     protected function casts(): array
     {
-        return ['chauffeur_verifie' => 'boolean'];
+        return ['chauffeur_verifie' => 'boolean', 'traite_at' => 'datetime'];
     }
 }

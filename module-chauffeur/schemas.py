@@ -47,6 +47,7 @@ class ChauffeurCreate(BaseModel):
     numero_permis: str
     categorie_permis: str
     date_expiration_permis: date
+    vehicule_id: Optional[int] = None
 
     @field_validator("cin")
     @classmethod
@@ -77,6 +78,7 @@ class ChauffeurUpdate(BaseModel):
     numero_permis: Optional[str] = None
     categorie_permis: Optional[str] = None
     date_expiration_permis: Optional[date] = None
+    vehicule_id: Optional[int] = None
 
     @field_validator("cin")
     @classmethod
@@ -105,6 +107,7 @@ class ChauffeurReactivation(BaseModel):
     date_expiration_permis: Optional[date] = None
 
 class AffectationRequest(BaseModel):
+    vehicule_id: int                      # obligatoire
     categorie_vehicule: Optional[str] = None
 
 
@@ -123,6 +126,7 @@ class EligibiliteOut(BaseModel):
     affectable: bool
     motifs: list[str]
 
+
     
 class ChauffeurOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -138,3 +142,5 @@ class ChauffeurOut(BaseModel):
     statut: StatutChauffeur
     created_at: datetime
     updated_at: datetime
+    vehicule_id: Optional[int] = None
+    vehicule: Optional[dict] = None

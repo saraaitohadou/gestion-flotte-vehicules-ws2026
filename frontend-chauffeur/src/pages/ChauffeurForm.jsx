@@ -4,7 +4,16 @@ import { api } from "../api.js";
 import { CATEGORIES, joursRestants } from "../utils.js";
 import { useToast } from "../components/Toast.jsx";
 
-const VIDE = { cin: "", nom: "", prenom: "", telephone: "", numero_permis: "", categorie_permis: "B", date_expiration_permis: "" };
+const VIDE = {
+  cin: "",
+  nom: "",
+  prenom: "",
+  telephone: "",
+  numero_permis: "",
+  categorie_permis: "B",
+  date_expiration_permis: "",
+  vehicule_id: "",
+};
 const CIN_RE = /^[A-Z]{1,2}\d{5,6}$/;
 const TEL_RE = /^(?:\+212|0)[67]\d{8}$/;
 
@@ -27,17 +36,31 @@ export default function ChauffeurForm() {
   const toast = useToast();
 
   const [form, setForm] = useState(VIDE);
+  const [vehicules, setVehicules] = useState([]);
   const [errors, setErrors] = useState({});
   const [globalError, setGlobalError] = useState(null);
   const [loading, setLoading] = useState(edition);
   const [saving, setSaving] = useState(false);
 
+  // Chargement de la liste des véhicules depuis vehicule-service
+  useEffect(() => {
+    api.vehicules()
+      .then((data) => setVehicules(Array.isArray(data) ? data : []))
+      .catch(() => setVehicules([]));
+  }, []);
+
   useEffect(() => {
     if (!edition) return;
     api.get(id)
       .then((c) => setForm({
-        cin: c.cin, nom: c.nom, prenom: c.prenom, telephone: c.telephone ?? "",
-        numero_permis: c.numero_permis, categorie_permis: c.categorie_permis, date_expiration_permis: c.date_expiration_permis,
+        cin: c.cin,
+        nom: c.nom,
+        prenom: c.prenom,
+        telephone: c.telephone ?? "",
+        numero_permis: c.numero_permis,
+        categorie_permis: c.categorie_permis,
+        date_expiration_permis: c.date_expiration_permis,
+        vehicule_id: c.vehicule_id ? String(c.vehicule_id) : "",
       }))
       .catch((e) => setGlobalError({ message: e.message }))
       .finally(() => setLoading(false));
@@ -63,6 +86,7 @@ export default function ChauffeurForm() {
       numero_permis: form.numero_permis.trim(),
       categorie_permis: form.categorie_permis,
       date_expiration_permis: form.date_expiration_permis,
+      vehicule_id: form.vehicule_id ? parseInt(form.vehicule_id, 10) : null,
     };
 
     setSaving(true);
@@ -91,7 +115,6 @@ export default function ChauffeurForm() {
 
   if (loading) return <p className="muted">Chargement...</p>;
 
-  // Appelée comme une fonction (et non comme composant) pour ne pas perdre le focus à chaque frappe
   const champ = (nom, label, props = {}, hint) => (
     <label className={`field ${errors[nom] ? "field-error" : ""}`}>
       <span>{label}</span>
@@ -132,6 +155,19 @@ export default function ChauffeurForm() {
             </select>
           </label>
           {champ("date_expiration_permis", "Date d'expiration du permis", { type: "date" })}
+
+          {/* Sélection du véhicule issu du service véhicule */}
+          <label className="field">
+            <span>Véhicule assigné (service véhicule)</span>
+            <select value={form.vehicule_id} onChange={set("vehicule_id")}>
+              <option value="">— Aucun véhicule —</option>
+              {vehicules.map((v) => (
+                <option key={v.id} value={v.id}>
+                  #{v.id} - {v.immatriculation || "Sans immatriculation"} ({v.marque || ""} {v.modele || ""} {v.statut ? `• ${v.statut}` : ""})
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
 
         <div className="form-actions">

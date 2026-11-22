@@ -114,7 +114,7 @@ export default function EntretiensList() {
                   <td>{formatDate(e.date_entretien)}</td>
                   <td>{formatKm(e.kilometrage)}</td>
                   <td className="right">{formatMoney(e.cout)}</td>
-                  <td>
+                  <td style={{ paddingLeft: 16 }}>
                     <StatusBadge statut={e.statut} />
                     {e.archive && <span className="badge badge-mute" style={{ marginLeft: 6 }}>Archive</span>}
                   </td>

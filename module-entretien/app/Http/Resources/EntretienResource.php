@@ -26,7 +26,14 @@ class EntretienResource extends JsonResource
             ],
             'date_debut'     => $this->date_debut?->toIso8601String(),
             'date_fin'       => $this->date_fin?->toIso8601String(),
+            'date_annulation' => $this->cancelled_at?->toIso8601String(),
             'archive'        => $this->estArchive(),
+            'historique'     => $this->whenLoaded('historique', fn () => $this->historique->map(fn ($h) => [
+                'ancien_statut'  => $h->ancien_statut,
+                'nouveau_statut' => $h->nouveau_statut,
+                'action_par'     => $h->action_par,
+                'date'           => $h->created_at?->toIso8601String(),
+            ])),
             'responsables'   => [
                 'cree_par'    => $this->created_by,
                 'demarre_par' => $this->started_by,

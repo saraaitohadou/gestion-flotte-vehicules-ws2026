@@ -73,6 +73,9 @@ export const api = {
   basculerGestionnaire: (id, actif) => call(`/gestionnaires/${id}/actif`, { method: "PATCH", body: { actif } }),
   motDePasseGestionnaire: (id, password) => call(`/gestionnaires/${id}/mot-de-passe`, { method: "PATCH", body: { password } }),
 
+  // Vehicules
+  vehicules: () => call("/vehicules"),
+
   // Entretiens
   list: (params = {}) => call("/entretiens", { params }),
   get: (id) => call(`/entretiens/${id}`),

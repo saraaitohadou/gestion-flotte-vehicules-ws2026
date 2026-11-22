@@ -113,7 +113,7 @@ export default function ChauffeursList() {
         <table className="table">
           <thead>
             <tr>
-              <th>Chauffeur</th><th>CIN</th><th>Permis</th><th>Expiration</th><th>Statut</th><th className="right">Actions</th>
+              <th>Chauffeur</th><th>CIN</th><th>Permis</th><th>Expiration</th><th>Véhicule</th><th>Statut</th><th className="right">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -128,6 +128,15 @@ export default function ChauffeursList() {
                 <td>{c.cin}</td>
                 <td>{c.numero_permis} <span className="muted small">(cat. {c.categorie_permis})</span></td>
                 <td>{formatDate(c.date_expiration_permis)} <PermisBadge date={c.date_expiration_permis} /></td>
+                <td>
+                  {c.vehicule_id ? (
+                    <span className="badge badge-info" title={c.vehicule ? `${c.vehicule.marque || ""} ${c.vehicule.modele || ""} (${c.vehicule.immatriculation || ""})` : `Véhicule #${c.vehicule_id}`}>
+                      #{c.vehicule_id} {c.vehicule?.immatriculation ? `(${c.vehicule.immatriculation})` : ""}
+                    </span>
+                  ) : (
+                    <span className="muted">—</span>
+                  )}
+                </td>
                 <td><StatusBadge statut={c.statut} /></td>
                 <td className="right actions">
                   <Link className="btn btn-sm" to={`/chauffeurs/${c.id_chauffeur}`}>Profil</Link>
@@ -139,7 +148,7 @@ export default function ChauffeursList() {
               </tr>
             ))}
             {!loading && visibles.length === 0 && (
-              <tr><td colSpan="6" className="empty">
+              <tr><td colSpan="7" className="empty">
                 {filtreActif ? "Aucun chauffeur ne correspond à votre recherche." : "Aucun chauffeur enregistré. Ajoutez le premier."}
               </td></tr>
             )}

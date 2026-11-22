@@ -189,6 +189,39 @@ input:hover, select:hover { border-color: #8898ad; }
 .brand-dark { margin-bottom: 0; padding: 0; }
 .btn-block { width: 100%; padding: 11px 16px; }
 
+.role-selector {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 4px;
+  gap: 4px;
+}
+.role-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.9rem;
+}
+.role-tab-btn:hover {
+  color: var(--ink);
+}
+.role-tab-btn.active {
+  background: var(--surface);
+  color: var(--primary);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
 @media (max-width: 960px) {
   .sidebar-foot { margin-top: 12px; flex-direction: row; align-items: center; justify-content: space-between; }
 }

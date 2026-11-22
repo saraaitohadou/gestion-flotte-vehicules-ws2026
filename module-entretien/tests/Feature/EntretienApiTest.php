@@ -42,7 +42,7 @@ class EntretienApiTest extends TestCase
             'type'           => 'PREVENTIF',
             'categorie'      => 'VIDANGE',
             'description'    => 'Vidange moteur',
-            'date_entretien' => '2026-11-10',
+            'date_entretien' => now()->addDay()->toDateString(),
             'kilometrage'    => 50500,
             'cout'           => 850,
         ], $override);
@@ -55,7 +55,7 @@ class EntretienApiTest extends TestCase
             'type'           => TypeEntretien::PREVENTIF,
             'categorie'      => 'VIDANGE',
             'description'    => 'Vidange',
-            'date_entretien' => '2026-11-10',
+            'date_entretien' => now()->addDay()->toDateString(),
             'kilometrage'    => 50500,
             'cout'           => 850,
             'statut'         => StatutEntretien::Planifie,

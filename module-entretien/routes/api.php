@@ -3,6 +3,7 @@
 use App\Http\Controllers\AlerteController;
 use App\Http\Controllers\DeclarationPanneController;
 use App\Http\Controllers\EntretienController;
+use App\Http\Controllers\VehiculeController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', fn () => response()->json(['status' => 'ok', 'service' => 'entretien']));
@@ -19,6 +20,7 @@ Route::middleware('jwt')->group(function () {
     // Gestion des entretiens : ADMIN + GESTIONNAIRE
     Route::middleware('role:ADMINISTRATEUR,GESTIONNAIRE')->group(function () {
         Route::get('/alertes', [AlerteController::class, 'index']);
+        Route::get('/vehicules', [VehiculeController::class, 'index']);
         Route::post('/entretiens', [EntretienController::class, 'store']);
         Route::put('/entretiens/{entretien}', [EntretienController::class, 'update']);
         Route::patch('/entretiens/{entretien}/demarrer', [EntretienController::class, 'demarrer']);
