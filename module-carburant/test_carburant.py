@@ -209,3 +209,11 @@ def test_anomalies_filtre_par_vehicule(client, services):
     client.post("/carburants", json=plein(vid, cid, "2026-10-22", 84, 11800))
     assert len(client.get("/carburants/anomalies", params={"vehicule_id": vid}).json()) == 1
     assert client.get("/carburants/anomalies", params={"vehicule_id": 999}).json() == []
+
+
+def test_interface_web_servie(client):
+    r = client.get("/ui/")
+    assert r.status_code == 200
+    assert "Carburant" in r.text
+    assert client.get("/ui/app.js").status_code == 200
+    assert client.get("/ui/style.css").status_code == 200
