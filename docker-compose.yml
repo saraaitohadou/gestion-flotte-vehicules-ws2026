@@ -116,7 +116,7 @@ services:
       DB_CONNECTION: mysql
       DB_HOST: db-commune
       DB_PORT: 3306
-      DB_DATABASE: ${ENTRETIEN_DB_NAME:-entretien_db}
+      DB_DATABASE: ${ENTRETIEN_DB_NAME:-gestion_flotte}
       DB_USERNAME: ${DB_USER:-root}
       DB_PASSWORD: ${DB_ROOT_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
