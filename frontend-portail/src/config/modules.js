@@ -1,0 +1,38 @@
+export const MODULES = [
+  {
+    id: 'vehicules',
+    titre: 'Gestion des Véhicules',
+    description: 'Parc automobile, immatriculations, kilométrage et disponibilité.',
+    urlFrontend: import.meta.env.VITE_URL_VEHICULES ?? 'http://localhost:5173/vehicules',
+    portBackend: '8001',
+    badge: 'PHP / MySQL',
+    couleur: 'bg-blue-600',
+  },
+  {
+    id: 'chauffeurs',
+    titre: 'Gestion des Chauffeurs',
+    description: 'Conducteurs, permis de conduire, affectations et missions.',
+    urlFrontend: import.meta.env.VITE_URL_CHAUFFEURS ?? 'http://localhost:5174',
+    portBackend: '8002',
+    badge: 'FastAPI',
+    couleur: 'bg-emerald-600',
+  },
+  {
+    id: 'carburant',
+    titre: 'Suivi Carburant',
+    description: 'Pleins, consommation moyenne, cartes carburant et coûts.',
+    urlFrontend: import.meta.env.VITE_URL_CARBURANT ?? 'http://localhost:5175',
+    portBackend: '8003',
+    badge: 'Node / API',
+    couleur: 'bg-amber-600',
+  },
+  {
+    id: 'entretien',
+    titre: 'Maintenance & Entretien',
+    description: 'Révisions périodiques, réparations, alertes et historique.',
+    urlFrontend: import.meta.env.VITE_URL_ENTRETIEN ?? 'http://localhost:8004',
+    portBackend: '8004',
+    badge: 'Laravel',
+    couleur: 'bg-purple-600',
+  },
+]

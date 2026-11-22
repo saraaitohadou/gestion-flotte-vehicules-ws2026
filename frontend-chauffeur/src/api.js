@@ -30,14 +30,18 @@ function toError(status, body) {
     return new ApiError(detail.message || "Une erreur est survenue.", status, { code: detail.erreur, data: detail });
   }
   if (typeof detail === "string") return new ApiError(detail, status);
-  return new ApiError(`Le service Chauffeur ne répond pas correctement (code ${status}).`, status);
+  // Gestion du format d'erreur Laravel (service Entretien / Gestionnaires)
+  if (body?.error?.message) {
+    return new ApiError(body.error.message, status, { code: body.error.code, data: body.error });
+  }
+  return new ApiError(`Le service ne répond pas correctement (code ${status}).`, status);
 }
 
 async function call(url, { method = "GET", body, params, secured = true } = {}) {
   const qs = params
     ? "?" + new URLSearchParams(Object.entries(params).filter(([, v]) => v !== "" && v != null))
     : "";
-  const headers = {};
+  const headers = { Accept: "application/json" };
   if (body) headers["Content-Type"] = "application/json";
   const token = getToken();
   if (secured && token) headers.Authorization = `Bearer ${token}`;
@@ -46,7 +50,7 @@ async function call(url, { method = "GET", body, params, secured = true } = {}) 
   try {
     res = await fetch(`${url}${qs}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
   } catch {
-    throw new ApiError("Service Chauffeur injoignable. Vérifiez que le conteneur est démarré.", 0);
+    throw new ApiError("Service injoignable. Vérifiez que le conteneur est démarré.", 0);
   }
 
   // Token absent, expiré ou refusé : on déconnecte l'utilisateur
@@ -64,7 +68,14 @@ async function call(url, { method = "GET", body, params, secured = true } = {}) 
 const request = (path = "", opts) => call(`${BASE}${path}`, opts);
 
 export const api = {
-  login: (username, password) => call(`${AUTH_BASE}/login`, { method: "POST", body: { username, password }, secured: false }),
+  login: (username, password) =>
+    call(`${AUTH_BASE}/login`, { method: "POST", body: { username, password }, secured: false }),
+
+  loginGestionnaire: (username, password) =>
+    call("/api/gestionnaires/login", { method: "POST", body: { username, password }, secured: false }),
+
+  loginChauffeur: (cin, numero_permis) =>
+    call("/espace-chauffeur/login", { method: "POST", body: { cin, numero_permis }, secured: false }),
 
   list: (params = {}) => request("", { params: { limit: 200, ...params } }),
   get: (id) => request(`/${id}`),
@@ -78,5 +89,4 @@ export const api = {
   eligibilite: (id) => request(`/${id}/eligibilite`),
   compatibilite: (id, categorie_vehicule) => request(`/${id}/compatibilite`, { params: { categorie_vehicule } }),
   vehicules: () => request("/vehicules-disponibles").catch(() => []),
-  loginChauffeur: (cin, numero_permis) => call("/espace-chauffeur/login", { method: "POST", body: { cin, numero_permis }, secured: false }),
 };

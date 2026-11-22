@@ -1,3 +1,10 @@
+const urlParams = new URLSearchParams(window.location.search)
+const urlToken = urlParams.get('token')
+if (urlToken) {
+  localStorage.setItem('flotte.token', urlToken)
+  window.history.replaceState({}, document.title, window.location.pathname)
+}
+
 const BASE = import.meta.env.VITE_API_URL ?? '/api'
 const AUTH_URL = import.meta.env.VITE_AUTH_URL ?? 'http://localhost:8002/api/auth/login'
 

@@ -8,7 +8,7 @@ const AUTH = process.env.VITE_AUTH_TARGET || "http://127.0.0.1:8002";
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 5174,
+    port: 5176,
     proxy: {
       // Login administrateur et chauffeur : service Chauffeur (FastAPI)
       "/api/auth": { target: AUTH, changeOrigin: true },
