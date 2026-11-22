@@ -95,75 +95,18 @@ def get_mon_profil(chauffeur: models.Chauffeur = Depends(auth.get_chauffeur_cour
 # 3. Mise à jour du statut et véhicule
 # ==========================================================
 
-@router.patch("/me/statut", response_model=se.ChauffeurMeOut)
+@router.patch("/me/statut")
 def update_mon_statut(
-    data: se.ChauffeurStatutPatchRequest,
     chauffeur: models.Chauffeur = Depends(auth.get_chauffeur_courant),
-    db: Session = Depends(get_db),
 ):
-    """Met à jour le statut et vehicule_id du chauffeur.
-
-    - Bloque le passage à EN_MISSION si le permis est expiré ou s'il n'y a pas de vehicule_id.
-    - Remet vehicule_id à None si le statut passe à DISPONIBLE.
-    """
-    aujourdhui = date.today()
-    permis_expire = chauffeur.date_expiration_permis <= aujourdhui
-
-    if data.statut == models.StatutChauffeur.EN_MISSION:
-        if permis_expire:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail={
-                    "erreur": "PERMIS_EXPIRE",
-                    "message": f"Impossible de passer en mission : votre permis a expiré le {chauffeur.date_expiration_permis}.",
-                },
-            )
-
-        target_vehicule_id = data.vehicule_id if data.vehicule_id is not None else chauffeur.vehicule_id
-        if not target_vehicule_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail={
-                    "erreur": "VEHICULE_REQUIS",
-                    "message": "Un identifiant de véhicule est requis pour passer au statut EN_MISSION.",
-                },
-            )
-
-        # Vérifier disponibilité et passer le véhicule en mission
-        clients.verifier_disponibilite(target_vehicule_id)
-        clients.changer_statut_vehicule(target_vehicule_id, "EN_MISSION")
-
-        chauffeur.statut = models.StatutChauffeur.EN_MISSION
-        chauffeur.vehicule_id = target_vehicule_id
-
-    elif data.statut == models.StatutChauffeur.DISPONIBLE:
-        # Libérer l'ancien véhicule si assigné
-        if chauffeur.vehicule_id is not None:
-            try:
-                clients.changer_statut_vehicule(chauffeur.vehicule_id, "DISPONIBLE")
-            except Exception:
-                pass  # Ne bloque pas le retour à DISPONIBLE du chauffeur
-
-        chauffeur.vehicule_id = None
-        chauffeur.statut = models.StatutChauffeur.DISPONIBLE
-
-    elif data.statut in (models.StatutChauffeur.EN_CONGE, models.StatutChauffeur.INACTIF):
-        if chauffeur.statut == models.StatutChauffeur.EN_MISSION:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail={
-                    "erreur": "MISSION_NON_CLOTUREE",
-                    "message": "Vous devez d'abord repasser au statut DISPONIBLE pour clôturer votre mission avant de changer de statut.",
-                },
-            )
-        chauffeur.statut = data.statut
-        if data.vehicule_id is not None:
-            chauffeur.vehicule_id = data.vehicule_id
-
-    db.commit()
-    db.refresh(chauffeur)
-    return _construire_profil(chauffeur)
-
+    """Le chauffeur est en lecture seule sur son statut et ses affectations."""
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail={
+            "erreur": "ACTION_NON_AUTORISEE",
+            "message": "Seul l'administrateur peut modifier votre statut ou vos affectations.",
+        },
+    )
 
 # ==========================================================
 # 4. Déclaration Carburant
