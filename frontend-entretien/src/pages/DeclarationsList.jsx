@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../api.js";
 import { useAuth } from "../components/AuthContext.jsx";
+import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import { useToast } from "../components/Toast.jsx";
 import { ROLES } from "../roles.js";
 
 const TONES = { DECLAREE: "warn", TRAITEE: "ok", REJETEE: "mute" };
 const LABELS = { DECLAREE: "Declaree", TRAITEE: "Traitee", REJETEE: "Rejetee" };
+const dt = (iso) => (iso ? new Date(iso).toLocaleString("fr-FR") : "-");
 
 function DeclBadge({ statut }) {
   return <span className={`badge badge-${TONES[statut] ?? "mute"}`}>{LABELS[statut] ?? statut}</span>;
@@ -20,6 +23,8 @@ export default function DeclarationsList({ gestion }) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(null);
   const [error, setError] = useState("");
+  const [rejet, setRejet] = useState(null); // declaration a rejeter
+  const [motif, setMotif] = useState("");
 
   const charger = useCallback(async () => {
     setLoading(true);
@@ -46,8 +51,11 @@ export default function DeclarationsList({ gestion }) {
     try {
       await fn(d.id);
       toast(msg);
+      setRejet(null);
+      setMotif("");
       await charger();
     } catch (e) {
+      setRejet(null);
       setError(e.code ? `${e.message} (${e.code})` : e.message);
     } finally {
       setBusy(null);
@@ -80,25 +88,48 @@ export default function DeclarationsList({ gestion }) {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ textAlign: "left", color: "var(--muted)", fontSize: "0.85rem" }}>
-                <th style={{ padding: 8 }}>#</th><th>Vehicule</th><th>Chauffeur</th><th>Categorie</th><th>Description</th><th>Km</th><th>Statut</th>{gestion && <th></th>}
+                <th style={{ padding: 8 }}>#</th><th>Vehicule</th><th>Chauffeur</th><th>Categorie</th>
+                <th>Description</th><th>Km</th><th>Statut</th><th>Traitement</th>{gestion && <th></th>}
               </tr>
             </thead>
             <tbody>
               {rows.map((d) => (
-                <tr key={d.id} style={{ borderTop: "1px solid var(--line)" }}>
+                <tr key={d.id} style={{ borderTop: "1px solid var(--line)", verticalAlign: "top" }}>
                   <td style={{ padding: 8 }}>{d.id}</td>
                   <td>#{d.vehicule_id}</td>
-                  <td>#{d.chauffeur_id}</td>
+                  <td>
+                    #{d.chauffeur_id}
+                    {d.chauffeur_verifie === false && (
+                      <span className="badge badge-warn" style={{ marginLeft: 6 }} title="Service Chauffeur injoignable lors de la declaration">Non verifie</span>
+                    )}
+                  </td>
                   <td>{d.categorie}</td>
                   <td>{d.description}</td>
                   <td>{d.kilometrage ?? "-"}</td>
-                  <td><DeclBadge statut={d.statut} /></td>
+                  <td style={{ paddingRight: 12 }}><DeclBadge statut={d.statut} /></td>
+                  <td className="small">
+                    {d.statut === "TRAITEE" && d.entretien_id && (
+                      <>
+                        {user?.role !== ROLES.CHAUF
+                          ? <Link to={`/entretien/${d.entretien_id}`}>Entretien #{d.entretien_id}</Link>
+                          : <>Entretien #{d.entretien_id}</>}
+                        <br /><span className="muted">par {d.traite_par ?? "-"} | {dt(d.traite_at)}</span>
+                      </>
+                    )}
+                    {d.statut === "REJETEE" && (
+                      <>
+                        <span className="muted">par {d.traite_par ?? "-"} | {dt(d.traite_at)}</span>
+                        {d.motif_rejet && <><br />Motif : {d.motif_rejet}</>}
+                      </>
+                    )}
+                    {d.statut === "DECLAREE" && <span className="muted">En attente</span>}
+                  </td>
                   {gestion && (
                     <td className="right" style={{ whiteSpace: "nowrap" }}>
                       {d.statut === "DECLAREE" && (
                         <>
                           <button className="btn btn-primary" disabled={busy === d.id} onClick={() => agir(d, (i) => api.prendreEnCharge(i), "Declaration prise en charge.")}>Prendre en charge</button>{" "}
-                          <button className="btn" disabled={busy === d.id} onClick={() => agir(d, (i) => api.rejeter(i), "Declaration rejetee.")}>Rejeter</button>
+                          <button className="btn" disabled={busy === d.id} onClick={() => { setMotif(""); setRejet(d); }}>Rejeter</button>
                         </>
                       )}
                     </td>
@@ -109,6 +140,21 @@ export default function DeclarationsList({ gestion }) {
           </table>
         )}
       </div>
+
+      {rejet && (
+        <ConfirmDialog
+          title={`Rejeter la declaration #${rejet.id} ?`}
+          confirmLabel="Rejeter"
+          busy={busy === rejet.id}
+          onCancel={() => setRejet(null)}
+          onConfirm={() => agir(rejet, (i) => api.rejeter(i, motif.trim() ? { motif: motif.trim() } : undefined), "Declaration rejetee.")}
+        >
+          <label className="field">
+            <span>Motif (optionnel)</span>
+            <textarea rows="3" maxLength="500" value={motif} onChange={(e) => setMotif(e.target.value)} />
+          </label>
+        </ConfirmDialog>
+      )}
     </>
   );
 }
