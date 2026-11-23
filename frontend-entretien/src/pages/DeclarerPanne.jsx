@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api.js";
 import { useAuth } from "../components/AuthContext.jsx";
@@ -15,7 +15,16 @@ export default function DeclarerPanne() {
   const [errors, setErrors] = useState({});
   const [globalError, setGlobalError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [vehicules, setVehicules] = useState([]);
+  const [chauffeurs, setChauffeurs] = useState([]);
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  // Listes reservees a l'admin et au gestionnaire (le chauffeur recevrait un 403)
+  useEffect(() => {
+    if (estChauffeur) return;
+    api.vehicules().then((r) => setVehicules(r.data ?? [])).catch((e) => setGlobalError(e.message));
+    api.chauffeurs().then((r) => setChauffeurs(r.data ?? [])).catch((e) => setGlobalError(e.message));
+  }, [estChauffeur]);
 
   const envoyer = async (ev) => {
     ev.preventDefault();
@@ -55,6 +64,32 @@ export default function DeclarerPanne() {
     </label>
   );
 
+  const champVehicule = estChauffeur
+    ? champ("vehicule_id", "Vehicule (id)", <input type="number" min="1" value={form.vehicule_id} onChange={(e) => set("vehicule_id", e.target.value)} />)
+    : champ("vehicule_id", "Vehicule", (
+      <select value={form.vehicule_id} onChange={(e) => set("vehicule_id", e.target.value)}>
+        <option value="">-- Choisir un vehicule --</option>
+        {vehicules.map((v) => (
+          <option key={v.id} value={v.id}>
+            {v.immatriculation} - {v.marque} {v.modele} ({Number(v.kilometrage).toLocaleString("fr-FR")} km, {v.statut})
+          </option>
+        ))}
+      </select>
+    ));
+
+  const champChauffeur = estChauffeur
+    ? champ("chauffeur_id", "Chauffeur (id)", <input type="number" value={form.chauffeur_id} disabled />)
+    : champ("chauffeur_id", "Chauffeur", (
+      <select value={form.chauffeur_id} onChange={(e) => set("chauffeur_id", e.target.value)}>
+        <option value="">-- Choisir un chauffeur --</option>
+        {chauffeurs.map((c) => (
+          <option key={c.id_chauffeur ?? c.id} value={c.id_chauffeur ?? c.id}>
+            {c.nom} {c.prenom} ({c.cin}{c.statut ? `, ${c.statut}` : ""})
+          </option>
+        ))}
+      </select>
+    ));
+
   return (
     <>
       <div className="page-head"><h1>Declarer une panne</h1></div>
@@ -62,8 +97,8 @@ export default function DeclarerPanne() {
       <form className="panel" onSubmit={envoyer} noValidate>
         <fieldset disabled={saving} style={{ border: 0, padding: 0, margin: 0 }}>
           <div className="grid-2">
-            {champ("vehicule_id", "Vehicule (id)", <input type="number" min="1" value={form.vehicule_id} onChange={(e) => set("vehicule_id", e.target.value)} />)}
-            {champ("chauffeur_id", "Chauffeur (id)", <input type="number" min="1" value={form.chauffeur_id} onChange={(e) => set("chauffeur_id", e.target.value)} disabled={estChauffeur} />)}
+            {champVehicule}
+            {champChauffeur}
             {champ("categorie", "Categorie", (
               <select value={form.categorie} onChange={(e) => set("categorie", e.target.value)}>
                 <option value="PANNE">PANNE</option>

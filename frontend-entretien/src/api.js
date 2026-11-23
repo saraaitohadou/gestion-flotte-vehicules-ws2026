@@ -75,6 +75,7 @@ export const api = {
 
   // Vehicules
   vehicules: () => call("/vehicules"),
+  chauffeurs: () => call("/chauffeurs"),
 
   // Entretiens
   list: (params = {}) => call("/entretiens", { params }),
