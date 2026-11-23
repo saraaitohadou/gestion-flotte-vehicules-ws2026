@@ -461,6 +461,9 @@ def test_ut_cha_50_cloture_impossible_si_service_vehicule_en_panne(db, vehicules
     assert e.value.status_code == 503
     db.expire_all()
     assert db.get(models.Chauffeur, c.id_chauffeur).statut == S.EN_MISSION
+
+    # Le service véhicule redevient disponible pour la deuxième partie du scénario.
+    vehicules.en_panne = False
     c = creer(db, categorie_permis="C")
     vid = vehicules.nouveau()
     en_mission = svc.affecter_mission(

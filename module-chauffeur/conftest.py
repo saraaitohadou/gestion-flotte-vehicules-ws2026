@@ -51,12 +51,12 @@ class FauxVehicules:
         if vid not in self.statuts:
             raise HTTPException(404, detail={"erreur": "VEHICULE_INTROUVABLE", "message": "?"})
 
-    def verifier_disponibilite(self, vid):
+    def verifier_disponibilite(self, vid, bearer_token=None):
         self._controle(vid)
         if self.statuts[vid] != "DISPONIBLE":
             raise HTTPException(409, detail={"erreur": "VEHICULE_INDISPONIBLE", "message": "?"})
 
-    def changer_statut(self, vid, statut):
+    def changer_statut(self, vid, statut, bearer_token=None):
         self._controle(vid)
         self.statuts[vid] = statut
 

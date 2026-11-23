@@ -1,0 +1,79 @@
+[
+    {
+        "Etape":  "Vehicule AVANT",
+        "Methode":  "GET",
+        "Url":  "http://127.0.0.1:8001/api/vehicules/2",
+        "Http":  "200",
+        "Extrait":  "statut=DISPONIBLE km=62500"
+    },
+    {
+        "Etape":  "Liste vehicules (proxy)",
+        "Methode":  "GET",
+        "Url":  "http://127.0.0.1:8004/api/vehicules",
+        "Http":  "200",
+        "Extrait":  "nb=3"
+    },
+    {
+        "Etape":  "Detail vehicule (NOUVEAU proxy)",
+        "Methode":  "GET",
+        "Url":  "http://127.0.0.1:8004/api/vehicules/2",
+        "Http":  "200",
+        "Extrait":  "statut=DISPONIBLE km=62500"
+    },
+    {
+        "Etape":  "Creation entretien",
+        "Methode":  "POST",
+        "Url":  "http://127.0.0.1:8004/api/entretiens",
+        "Http":  "201",
+        "Extrait":  "id=19 statut=PLANIFIE"
+    },
+    {
+        "Etape":  "Apres PLANIFIER (inchange)",
+        "Methode":  "GET",
+        "Url":  "http://127.0.0.1:8001/api/vehicules/2",
+        "Http":  "200",
+        "Extrait":  "statut=DISPONIBLE km=62500"
+    },
+    {
+        "Etape":  "Demarrer",
+        "Methode":  "PATCH",
+        "Url":  "http://127.0.0.1:8004/api/entretiens/19/demarrer",
+        "Http":  "200",
+        "Extrait":  "statut=EN_COURS"
+    },
+    {
+        "Etape":  "Vehicule EN_MAINTENANCE (poll \u003c=90s)",
+        "Methode":  "GET",
+        "Url":  "http://127.0.0.1:8001/api/vehicules/2",
+        "Http":  "200",
+        "Extrait":  "statut=EN_MAINTENANCE km=62500 tentatives=1 secondes=0.04"
+    },
+    {
+        "Etape":  "Terminer",
+        "Methode":  "PATCH",
+        "Url":  "http://127.0.0.1:8004/api/entretiens/19/terminer",
+        "Http":  "200",
+        "Extrait":  "statut=TERMINE"
+    },
+    {
+        "Etape":  "Vehicule DISPONIBLE (poll \u003c=90s)",
+        "Methode":  "GET",
+        "Url":  "http://127.0.0.1:8001/api/vehicules/2",
+        "Http":  "200",
+        "Extrait":  "statut=DISPONIBLE km=62500 tentatives=1 secondes=0.03"
+    },
+    {
+        "Etape":  "Archiver entretien test",
+        "Methode":  "DELETE",
+        "Url":  "http://127.0.0.1:8004/api/entretiens/19",
+        "Http":  "200",
+        "Extrait":  "archive=True"
+    },
+    {
+        "Etape":  "Vehicule APRES",
+        "Methode":  "GET",
+        "Url":  "http://127.0.0.1:8001/api/vehicules/2",
+        "Http":  "200",
+        "Extrait":  "statut=DISPONIBLE km=62500"
+    }
+]

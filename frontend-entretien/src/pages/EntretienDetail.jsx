@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { api } from "../api.js";
+import { api, messageErreur } from "../api.js";
 import { useAuth } from "../components/AuthContext.jsx";
 import { StatusBadge, TypeBadge } from "../components/Badges.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
@@ -17,6 +17,7 @@ export default function EntretienDetail() {
   const toast = useToast();
 
   const [e, setE] = useState(null);
+  const [vehicule, setVehicule] = useState(null);
   const [historique, setHistorique] = useState([]);
   const [onglet, setOnglet] = useState("infos");
   const [error, setError] = useState("");
@@ -30,10 +31,17 @@ export default function EntretienDetail() {
     try {
       const { data } = await api.get(id);
       setE(data);
+      // Etat authoritative du vehicule : verifie en direct apres chaque transition.
+      try {
+        const v = await api.vehicule(data.vehicule_id);
+        setVehicule(v.data ?? null);
+      } catch {
+        setVehicule(null);
+      }
       const h = await api.historiqueVehicule(data.vehicule_id);
       setHistorique(h.data ?? []);
     } catch (err) {
-      setError(err.message);
+      setError(messageErreur(err, "charger l'entretien"));
     } finally {
       setLoading(false);
     }
@@ -52,7 +60,7 @@ export default function EntretienDetail() {
       else await charger();
     } catch (err) {
       setConfirm(null);
-      setError(err.code ? `${err.message} (${err.code})` : err.message);
+      setError(messageErreur(err, "realiser l'action"));
     } finally {
       setBusy(false);
     }
@@ -110,6 +118,9 @@ export default function EntretienDetail() {
           <div className="panel">
             <h2>Details</h2>
             {ligne("Vehicule", `#${e.vehicule_id}`)}
+            {ligne("Statut vehicule", vehicule
+              ? `${vehicule.statut} (${formatKm(vehicule.kilometrage)})`
+              : "etat indisponible")}
             {ligne("Categorie", e.categorie)}
             {ligne("Date", formatDate(e.date_entretien))}
             {ligne("Kilometrage", formatKm(e.kilometrage))}

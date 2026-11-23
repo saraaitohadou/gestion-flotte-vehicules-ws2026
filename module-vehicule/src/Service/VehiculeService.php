@@ -114,6 +114,12 @@ class VehiculeService
         $vehicule = $this->obtenir($id);
         $actuel = $vehicule->statut->value;
 
+        // Idempotence métier : demander l'état déjà atteint n'est pas un conflit.
+        // Cela permet à la saga Entretien de rejouer un PATCH après une réponse perdue.
+        if ($actuel === $nouveau->value) {
+            return $vehicule;
+        }
+
         if (!in_array($nouveau->value, self::TRANSITIONS[$actuel], true)) {
             throw ServiceException::conflict("Transition impossible : $actuel vers {$nouveau->value}");
         }
@@ -140,6 +146,11 @@ class VehiculeService
 
         if ((float) $km < $vehicule->kilometrage) {
             throw ServiceException::invalid('Le kilométrage ne peut pas diminuer');
+        }
+
+        // Rejouer le même compteur est sans effet : on répond 200 sans écriture.
+        if ((float) $km === $vehicule->kilometrage) {
+            return $vehicule;
         }
 
         $this->repo->updateKilometrage($id, (float) $km);

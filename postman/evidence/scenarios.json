@@ -1,0 +1,107 @@
+﻿[
+    {
+        "Scenario":  "S01 creer entretien (vehicule 1 existant)",
+        "Method":  "POST",
+        "Url":  "http://entretien-app:8004/api/entretiens",
+        "Status":  201,
+        "Body":  "{\r\n    \"data\": {\r\n        \"id\": 15,\r\n        \"vehicule_id\": 1,\r\n        \"type\": \"PREVENTIF\",\r\n        \"categorie\": \"VIDANGE\",\r\n        \"description\": \"Audit REST - preventive\",\r\n        \"date_entretien\": \"2026-11-23\",\r\n        \"kilometrage\": 45300,\r\n        \"cout\": 100,\r\n        \"statut\": \"PLANIFIE\",\r\n        \"prochaine_echeance\": {\r\n            \"date\": null,\r\n            \"kilometrage\": null\r\n        },\r\n        \"date_debut\": null,\r\n        \"date_fin\": null,\r\n        \"date_annulation\": null,\r\n        \"archive\": false,\r\n        \"responsables\": {\r\n            \"cree_par\": \"audit-GESTIONNAIRE\",\r\n            \"demarre_par\": null,\r\n            \"termine_par\": null,\r\n            \"annule_par\": null,\r\n            \"archive_par\": null\r\n        },\r\n        \"created_at\": \"2026-11-23T16:06:34+00:00\",\r\n        \"updated_at\": \"2026-11-23T16:06:34+00:00\"\r\n    }\r\n}"
+    },
+    {
+        "Scenario":  "S02 creer entretien (vehicule 999999)",
+        "Method":  "POST",
+        "Url":  "http://entretien-app:8004/api/entretiens",
+        "Status":  404,
+        "Body":  "{\r\n    \"error\": {\r\n        \"code\": \"VEHICULE_INTROUVABLE\",\r\n        \"message\": \"Vehicule #999999 introuvable.\",\r\n        \"details\": {}\r\n    }\r\n}"
+    },
+    {
+        "Scenario":  "S03 consulter les entretiens",
+        "Method":  "GET",
+        "Url":  "http://entretien-app:8004/api/entretiens?per_page=100",
+        "Status":  200,
+        "Body":  "{\r\n    \"data\": [\r\n        {\r\n            \"id\": 15,\r\n            \"vehicule_id\": 1,\r\n            \"type\": \"PREVENTIF\",\r\n            \"categorie\": \"VIDANGE\",\r\n            \"description\": \"Audit REST - preventive\",\r\n            \"date_entretien\": \"2026-11-23\",\r\n            \"kilometrage\": 45300,\r\n            \"cout\": 100,\r\n            \"statut\": \"PLANIFIE\",\r\n            \"prochaine_echeance\": {\r\n                \"date\": null,\r\n                \"kilometrage\": null\r\n            },\r\n            \"date_debut\": null,\r\n            \"date_fin\": null,\r\n            \"date_annulation\": null,\r\n            \"archive\": false,\r\n            \"responsables\": {\r\n                \"cree_par\": \"audit-GESTIONNAIRE\",\r\n                \"demarre_par\": null,\r\n                \"termine_par\": null,\r\n                \"annule_par\": null,\r\n                \"archive_par\": null\r\n            },\r\n            \"created_at\": \"2026-11-23T16:06:34+0..."
+    },
+    {
+        "Scenario":  "S04 planifier entretien B (statut PLANIFIE)",
+        "Method":  "POST",
+        "Url":  "http://entretien-app:8004/api/entretiens",
+        "Status":  201,
+        "Body":  "{\r\n    \"data\": {\r\n        \"id\": 16,\r\n        \"vehicule_id\": 1,\r\n        \"type\": \"CORRECTIF\",\r\n        \"categorie\": \"PANNE\",\r\n        \"description\": \"Audit REST - a annuler\",\r\n        \"date_entretien\": \"2026-11-23\",\r\n        \"kilometrage\": 45300,\r\n        \"cout\": 0,\r\n        \"statut\": \"PLANIFIE\",\r\n        \"prochaine_echeance\": {\r\n            \"date\": null,\r\n            \"kilometrage\": null\r\n        },\r\n        \"date_debut\": null,\r\n        \"date_fin\": null,\r\n        \"date_annulation\": null,\r\n        \"archive\": false,\r\n        \"responsables\": {\r\n            \"cree_par\": \"audit-GESTIONNAIRE\",\r\n            \"demarre_par\": null,\r\n            \"termine_par\": null,\r\n            \"annule_par\": null,\r\n            \"archive_par\": null\r\n        },\r\n        \"created_at\": \"2026-11-23T16:06:37+00:00\",\r\n        \"updated_at\": \"2026-11-23T16:06:37+00:00\"\r\n    }\r\n}"
+    },
+    {
+        "Scenario":  "S04b verifier statut PLANIFIE via GET",
+        "Method":  "GET",
+        "Url":  "http://entretien-app:8004/api/entretiens/16",
+        "Status":  200,
+        "Body":  "{\r\n    \"data\": {\r\n        \"id\": 16,\r\n        \"vehicule_id\": 1,\r\n        \"type\": \"CORRECTIF\",\r\n        \"categorie\": \"PANNE\",\r\n        \"description\": \"Audit REST - a annuler\",\r\n        \"date_entretien\": \"2026-11-23\",\r\n        \"kilometrage\": 45300,\r\n        \"cout\": 0,\r\n        \"statut\": \"PLANIFIE\",\r\n        \"prochaine_echeance\": {\r\n            \"date\": null,\r\n            \"kilometrage\": null\r\n        },\r\n        \"date_debut\": null,\r\n        \"date_fin\": null,\r\n        \"date_annulation\": null,\r\n        \"archive\": false,\r\n        \"historique\": [\r\n            {\r\n                \"ancien_statut\": null,\r\n                \"nouveau_statut\": \"PLANIFIE\",\r\n                \"action_par\": \"audit-GESTIONNAIRE\",\r\n                \"date\": \"2026-11-23T16:06:37+00:00\"\r\n            }\r\n        ],\r\n        \"responsables\": {\r\n            \"cree_par\": \"audit-GESTIONNAIRE\",\r\n            \"demarre_par\": null,\r\n            ..."
+    },
+    {
+        "Scenario":  "S05 demarrer entretien A",
+        "Method":  "PATCH",
+        "Url":  "http://entretien-app:8004/api/entretiens/15/demarrer",
+        "Status":  200,
+        "Body":  "{\r\n    \"data\": {\r\n        \"id\": 15,\r\n        \"vehicule_id\": 1,\r\n        \"type\": \"PREVENTIF\",\r\n        \"categorie\": \"VIDANGE\",\r\n        \"description\": \"Audit REST - preventive\",\r\n        \"date_entretien\": \"2026-11-23\",\r\n        \"kilometrage\": 45300,\r\n        \"cout\": 100,\r\n        \"statut\": \"EN_COURS\",\r\n        \"prochaine_echeance\": {\r\n            \"date\": null,\r\n            \"kilometrage\": null\r\n        },\r\n        \"date_debut\": \"2026-11-23T16:06:39+00:00\",\r\n        \"date_fin\": null,\r\n        \"date_annulation\": null,\r\n        \"archive\": false,\r\n        \"historique\": [\r\n            {\r\n                \"ancien_statut\": null,\r\n                \"nouveau_statut\": \"PLANIFIE\",\r\n                \"action_par\": \"audit-GESTIONNAIRE\",\r\n                \"date\": \"2026-11-23T16:06:34+00:00\"\r\n            },\r\n            {\r\n                \"ancien_statut\": \"PLANIFIE\",\r\n                \"nouveau_statut\": \"EN_COUR..."
+    },
+    {
+        "Scenario":  "S05b statut vehicule apres demarrage",
+        "Method":  "DB",
+        "Url":  "gestion_flotte.vehicules",
+        "Status":  200,
+        "Body":  "InvalidArgumentException \r\n\r\n  Unexpected end of input\r\n\r\n  at vendor/psy/psysh/src/Shell.php:1516\r\n    1512Γûò \r\n    1513Γûò         if (!$this-\u003ehasValidCode()) {\r\n    1514Γûò             $this-\u003epopCodeStack();\r\n    1515Γûò \r\n  Γ₧£ 1516Γûò             throw new \\InvalidArgumentException(\u0027Unexpected end of input\u0027);\r\n    1517Γûò         }\r\n    1518Γûò     }\r\n    1519Γûò \r\n    1520Γûò     /**\r\n\r\n      \u001b[2m+15 vendor frames \u001b[22m\r\n\r\n  16  artisan:16\r\n      Illuminate\\Foundation\\Application::handleCommand(Object(Symfony\\Component\\Console\\Input\\ArgvInput))"
+    },
+    {
+        "Scenario":  "S06 terminer entretien A",
+        "Method":  "PATCH",
+        "Url":  "http://entretien-app:8004/api/entretiens/15/terminer",
+        "Status":  200,
+        "Body":  "{\r\n    \"data\": {\r\n        \"id\": 15,\r\n        \"vehicule_id\": 1,\r\n        \"type\": \"PREVENTIF\",\r\n        \"categorie\": \"VIDANGE\",\r\n        \"description\": \"Audit REST - preventive\",\r\n        \"date_entretien\": \"2026-11-23\",\r\n        \"kilometrage\": 45400,\r\n        \"cout\": 150,\r\n        \"statut\": \"TERMINE\",\r\n        \"prochaine_echeance\": {\r\n            \"date\": \"2027-05-23\",\r\n            \"kilometrage\": 55400\r\n        },\r\n        \"date_debut\": \"2026-11-23T16:06:39+00:00\",\r\n        \"date_fin\": \"2026-11-23T16:06:41+00:00\",\r\n        \"date_annulation\": null,\r\n        \"archive\": false,\r\n        \"historique\": [\r\n            {\r\n                \"ancien_statut\": null,\r\n                \"nouveau_statut\": \"PLANIFIE\",\r\n                \"action_par\": \"audit-GESTIONNAIRE\",\r\n                \"date\": \"2026-11-23T16:06:34+00:00\"\r\n            },\r\n            {\r\n                \"ancien_statut\": \"PLANIFIE\",\r\n           ..."
+    },
+    {
+        "Scenario":  "S06b statut/km vehicule apres fin",
+        "Method":  "DB",
+        "Url":  "gestion_flotte.vehicules",
+        "Status":  200,
+        "Body":  "InvalidArgumentException \r\n\r\n  Unexpected end of input\r\n\r\n  at vendor/psy/psysh/src/Shell.php:1516\r\n    1512Γûò \r\n    1513Γûò         if (!$this-\u003ehasValidCode()) {\r\n    1514Γûò             $this-\u003epopCodeStack();\r\n    1515Γûò \r\n  Γ₧£ 1516Γûò             throw new \\InvalidArgumentException(\u0027Unexpected end of input\u0027);\r\n    1517Γûò         }\r\n    1518Γûò     }\r\n    1519Γûò \r\n    1520Γûò     /**\r\n\r\n      \u001b[2m+15 vendor frames \u001b[22m\r\n\r\n  16  artisan:16\r\n      Illuminate\\Foundation\\Application::handleCommand(Object(Symfony\\Component\\Console\\Input\\ArgvInput))"
+    },
+    {
+        "Scenario":  "S07 annuler entretien B",
+        "Method":  "PATCH",
+        "Url":  "http://entretien-app:8004/api/entretiens/16/annuler",
+        "Status":  200,
+        "Body":  "{\r\n    \"data\": {\r\n        \"id\": 16,\r\n        \"vehicule_id\": 1,\r\n        \"type\": \"CORRECTIF\",\r\n        \"categorie\": \"PANNE\",\r\n        \"description\": \"Audit REST - a annuler\",\r\n        \"date_entretien\": \"2026-11-23\",\r\n        \"kilometrage\": 45300,\r\n        \"cout\": 0,\r\n        \"statut\": \"ANNULE\",\r\n        \"prochaine_echeance\": {\r\n            \"date\": null,\r\n            \"kilometrage\": null\r\n        },\r\n        \"date_debut\": null,\r\n        \"date_fin\": null,\r\n        \"date_annulation\": \"2026-11-23T16:06:43+00:00\",\r\n        \"archive\": false,\r\n        \"historique\": [\r\n            {\r\n                \"ancien_statut\": null,\r\n                \"nouveau_statut\": \"PLANIFIE\",\r\n                \"action_par\": \"audit-GESTIONNAIRE\",\r\n                \"date\": \"2026-11-23T16:06:37+00:00\"\r\n            },\r\n            {\r\n                \"ancien_statut\": \"PLANIFIE\",\r\n                \"nouveau_statut\": \"ANNULE\",\r\n    ..."
+    },
+    {
+        "Scenario":  "S08 archiver entretien B (ADMIN)",
+        "Method":  "DELETE",
+        "Url":  "http://entretien-app:8004/api/entretiens/16",
+        "Status":  200,
+        "Body":  "{\r\n    \"data\": {\r\n        \"id\": 16,\r\n        \"vehicule_id\": 1,\r\n        \"type\": \"CORRECTIF\",\r\n        \"categorie\": \"PANNE\",\r\n        \"description\": \"Audit REST - a annuler\",\r\n        \"date_entretien\": \"2026-11-23\",\r\n        \"kilometrage\": 45300,\r\n        \"cout\": 0,\r\n        \"statut\": \"ANNULE\",\r\n        \"prochaine_echeance\": {\r\n            \"date\": null,\r\n            \"kilometrage\": null\r\n        },\r\n        \"date_debut\": null,\r\n        \"date_fin\": null,\r\n        \"date_annulation\": \"2026-11-23T16:06:43+00:00\",\r\n        \"archive\": true,\r\n        \"responsables\": {\r\n            \"cree_par\": \"audit-GESTIONNAIRE\",\r\n            \"demarre_par\": null,\r\n            \"termine_par\": null,\r\n            \"annule_par\": \"audit-GESTIONNAIRE\",\r\n            \"archive_par\": \"audit-ADMINISTRATEUR\"\r\n        },\r\n        \"created_at\": \"2026-11-23T16:06:37+00:00\",\r\n        \"updated_at\": \"2026-11-23T16:06:44+00:00\"\r\n   ..."
+    },
+    {
+        "Scenario":  "S09 afficher les archives",
+        "Method":  "GET",
+        "Url":  "http://entretien-app:8004/api/entretiens?archives=seulement\u0026per_page=100",
+        "Status":  200,
+        "Body":  "{\r\n    \"data\": [\r\n        {\r\n            \"id\": 16,\r\n            \"vehicule_id\": 1,\r\n            \"type\": \"CORRECTIF\",\r\n            \"categorie\": \"PANNE\",\r\n            \"description\": \"Audit REST - a annuler\",\r\n            \"date_entretien\": \"2026-11-23\",\r\n            \"kilometrage\": 45300,\r\n            \"cout\": 0,\r\n            \"statut\": \"ANNULE\",\r\n            \"prochaine_echeance\": {\r\n                \"date\": null,\r\n                \"kilometrage\": null\r\n            },\r\n            \"date_debut\": null,\r\n            \"date_fin\": null,\r\n            \"date_annulation\": \"2026-11-23T16:06:43+00:00\",\r\n            \"archive\": true,\r\n            \"responsables\": {\r\n                \"cree_par\": \"audit-GESTIONNAIRE\",\r\n                \"demarre_par\": null,\r\n                \"termine_par\": null,\r\n                \"annule_par\": \"audit-GESTIONNAIRE\",\r\n                \"archive_par\": \"audit-ADMINISTRATEUR\"\r\n            },\r..."
+    },
+    {
+        "Scenario":  "S12a token absent",
+        "Method":  "GET",
+        "Url":  "http://entretien-app:8004/api/entretiens",
+        "Status":  401,
+        "Body":  "{\r\n    \"error\": {\r\n        \"code\": \"NON_AUTHENTIFIE\",\r\n        \"message\": \"Authentification requise.\",\r\n        \"details\": {}\r\n    }\r\n}"
+    },
+    {
+        "Scenario":  "S12b token invalide",
+        "Method":  "GET",
+        "Url":  "http://entretien-app:8004/api/entretiens",
+        "Status":  401,
+        "Body":  "{\r\n    \"error\": {\r\n        \"code\": \"TOKEN_INVALIDE\",\r\n        \"message\": \"Token invalide.\",\r\n        \"details\": {}\r\n    }\r\n}"
+    },
+    {
+        "Scenario":  "S12c aucun header Authorization",
+        "Method":  "GET",
+        "Url":  "http://entretien-app:8004/api/entretiens",
+        "Status":  401,
+        "Body":  "{\r\n    \"error\": {\r\n        \"code\": \"NON_AUTHENTIFIE\",\r\n        \"message\": \"Authentification requise.\",\r\n        \"details\": {}\r\n    }\r\n}"
+    }
+]

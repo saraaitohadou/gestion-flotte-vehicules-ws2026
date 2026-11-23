@@ -25,6 +25,8 @@ Route::middleware('jwt')->group(function () {
     Route::middleware('role:ADMINISTRATEUR,GESTIONNAIRE')->group(function () {
         Route::get('/alertes', [AlerteController::class, 'index']);
         Route::get('/vehicules', [VehiculeController::class, 'index']);
+        // Etat authoritative du vehicule : permet a l'UI de verifier DEMARRER / TERMINER.
+        Route::get('/vehicules/{vehicule}', [VehiculeController::class, 'show']);
         Route::get('/chauffeurs', [ChauffeurController::class, 'index']);
         Route::post('/entretiens', [EntretienController::class, 'store']);
         Route::put('/entretiens/{entretien}', [EntretienController::class, 'update']);

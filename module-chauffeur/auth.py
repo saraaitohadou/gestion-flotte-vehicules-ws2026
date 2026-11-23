@@ -112,10 +112,8 @@ def require_admin(request: Request, creds: HTTPAuthorizationCredentials | None =
     if cle and envoyee and _egal(envoyee, cle):
         return {"sub": "service", "role": "SERVICE"}
 
-    # Permettre la vérification inter-services en lecture (ex: module-carburant / module-entretien)
-    if request.method == "GET" and request.url.path.startswith("/api/chauffeurs/"):
-        if creds is None:
-            return {"sub": "service-interne", "role": "SERVICE"}
+    # Les appels inter-services passent UNIQUEMENT par la clé partagée ci-dessus.
+    # Aucun accès anonyme en lecture n'est toléré sur /api/chauffeurs/*.
 
     if creds is None:
         raise _erreur(401, "NON_AUTHENTIFIE", "Authentification requise : token Bearer manquant.")

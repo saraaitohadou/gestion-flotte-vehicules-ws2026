@@ -5,6 +5,8 @@ from typing import Any, Dict, List, Optional
 import httpx
 from fastapi import HTTPException, status
 
+import auth
+
 VEHICULE_URL = os.getenv("VEHICULE_SERVICE_URL", "http://vehicule-service").rstrip("/")
 CARBURANT_URL = os.getenv("CARBURANT_SERVICE_URL", "http://carburant-service:8000").rstrip("/")
 ENTRETIEN_URL = os.getenv("ENTRETIEN_SERVICE_URL", "http://entretien-app:8004").rstrip("/")
@@ -125,11 +127,23 @@ def declarer_carburant(donnees: dict) -> Dict[str, Any]:
 # Service Entretien
 # ==========================================
 
-def lister_entretiens_vehicule(vehicule_id: int) -> List[Dict[str, Any]]:
-    """GET /vehicules/{id}/entretiens ou GET /entretiens?vehicule_id={id}."""
+def _entretien_headers() -> dict:
+    """Entretien exige un JWT : on émet un token de service court avec le secret partagé.
+
+    La clé X-Service-Key/X-API-Key est conservée pour les autres services, mais
+    les routes /api d'Entretien sont protégées par leur middleware JWT.
+    """
     headers = _service_headers()
-    # Tentative 1 : /vehicules/{id}/entretiens
-    r = _appeler("GET", ENTRETIEN_URL, f"/vehicules/{vehicule_id}/entretiens", headers=headers)
+    token = auth.issue_token(sub="service-chauffeur", role=auth.ROLE_ADMIN, ttl=300)
+    headers["Authorization"] = f"Bearer {token}"
+    return headers
+
+
+def lister_entretiens_vehicule(vehicule_id: int) -> List[Dict[str, Any]]:
+    """GET /api/vehicules/{id}/entretiens ou GET /api/entretiens?vehicule_id={id}."""
+    headers = _entretien_headers()
+    # Tentative 1 : /api/vehicules/{id}/entretiens
+    r = _appeler("GET", ENTRETIEN_URL, f"/api/vehicules/{vehicule_id}/entretiens", headers=headers)
     if r.status_code == 200:
         data = r.json()
         if isinstance(data, dict) and "data" in data:
@@ -137,8 +151,8 @@ def lister_entretiens_vehicule(vehicule_id: int) -> List[Dict[str, Any]]:
         if isinstance(data, list):
             return data
 
-    # Tentative 2 : /entretiens?vehicule_id={id}
-    r2 = _appeler("GET", ENTRETIEN_URL, f"/entretiens?vehicule_id={vehicule_id}", headers=headers)
+    # Tentative 2 : /api/entretiens?vehicule_id={id}
+    r2 = _appeler("GET", ENTRETIEN_URL, f"/api/entretiens?vehicule_id={vehicule_id}", headers=headers)
     if r2.status_code == 200:
         data = r2.json()
         if isinstance(data, dict) and "data" in data:
@@ -151,7 +165,12 @@ def lister_entretiens_vehicule(vehicule_id: int) -> List[Dict[str, Any]]:
 
 
 def declarer_entretien(donnees: dict, bearer_token: Optional[str] = None) -> Dict[str, Any]:
-    """POST /api/entretiens ou /api/declarations-panne avec Bearer JWT et X-Service-Key."""
+    """POST /api/declarations-panne avec le Bearer JWT du chauffeur et X-Service-Key.
+
+    L'identite du chauffeur est prise par Entretien dans le JWT (jamais dans le corps) :
+    c'est la route declaree pour un signalement de panne. La correction precedente sur
+    /api/vehicules/{id}/entretiens (JWT de service) est conservee plus haut dans ce fichier.
+    """
     r = _appeler("POST", ENTRETIEN_URL, "/api/declarations-panne", json=donnees, headers=_auth_headers(bearer_token))
     if r.status_code in (200, 201):
         data = r.json()

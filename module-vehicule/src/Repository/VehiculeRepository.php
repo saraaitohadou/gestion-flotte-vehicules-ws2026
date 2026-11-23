@@ -2,6 +2,7 @@
 namespace App\Repository;
 
 use App\Database;
+use App\Exceptions\ServiceException;
 use App\Models\StatutVehicule;
 use App\Models\Vehicule;
 use PDO;
@@ -88,16 +89,53 @@ class VehiculeRepository
         ]);
     }
 
+    /**
+     * Mise à jour conditionnelle (compare-and-swap) : une transition concurrente
+     * déjà appliquée ne peut pas être écrasée par un rejou de la saga.
+     */
     public function updateStatut(int $id, StatutVehicule $statut): void
     {
-        $stmt = $this->pdo->prepare('UPDATE vehicules SET statut = :statut WHERE id = :id');
-        $stmt->execute(['statut' => $statut->value, 'id' => $id]);
+        $lecture = $this->pdo->prepare('SELECT statut FROM vehicules WHERE id = :id FOR UPDATE');
+        $lecture->execute(['id' => $id]);
+        $actuel = $lecture->fetchColumn();
+        if ($actuel === false) {
+            throw ServiceException::notFound();
+        }
+        if ($actuel === $statut->value) {
+            return; // déjà appliqué par une requête concurrente
+        }
+
+        $stmt = $this->pdo->prepare(
+            'UPDATE vehicules SET statut = :statut WHERE id = :id AND statut = :actuel'
+        );
+        $stmt->execute(['statut' => $statut->value, 'id' => $id, 'actuel' => $actuel]);
+        if ($stmt->rowCount() === 0) {
+            throw ServiceException::conflict('Transition impossible : le statut a changé entre-temps');
+        }
     }
 
     public function updateKilometrage(int $id, float $km): void
     {
-        $stmt = $this->pdo->prepare('UPDATE vehicules SET kilometrage = :km WHERE id = :id');
-        $stmt->execute(['km' => $km, 'id' => $id]);
+        $lecture = $this->pdo->prepare('SELECT kilometrage FROM vehicules WHERE id = :id FOR UPDATE');
+        $lecture->execute(['id' => $id]);
+        $actuel = $lecture->fetchColumn();
+        if ($actuel === false) {
+            throw ServiceException::notFound();
+        }
+        if ((float) $actuel === $km) {
+            return; // déjà appliqué par une requête concurrente
+        }
+        if ($km < (float) $actuel) {
+            throw ServiceException::invalid('Le kilométrage ne peut pas diminuer');
+        }
+
+        $stmt = $this->pdo->prepare(
+            'UPDATE vehicules SET kilometrage = :km WHERE id = :id AND kilometrage = :actuel'
+        );
+        $stmt->execute(['km' => $km, 'id' => $id, 'actuel' => $actuel]);
+        if ($stmt->rowCount() === 0) {
+            throw ServiceException::conflict('Le kilométrage a changé entre-temps');
+        }
     }
 
     public function delete(int $id): void

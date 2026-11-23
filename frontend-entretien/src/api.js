@@ -1,7 +1,8 @@
 // Client HTTP : login (service Chauffeur) + service Entretien (Laravel).
 import { clearToken, getToken } from "./auth.js";
 
-const BASE = import.meta.env.VITE_ENTRETIEN_URL ?? "/api";
+// L'optionnelle est necessaire pour pouvoir importer ce module dans un test Node.
+const BASE = import.meta.env?.VITE_ENTRETIEN_URL ?? "/api";
 
 // Filtre d'archivage de GET /entretiens (valeurs attendues par le backend).
 export const ARCHIVES = Object.freeze({
@@ -55,18 +56,38 @@ async function call(path, { method = "GET", body, params, secured = true, base =
   try {
     res = await fetch(`${base}${path}${qs}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
   } catch {
-    throw new ApiError("Service injoignable. Verifiez que le conteneur est demarre.", 0);
+    throw new ApiError("Service injoignable. Verifiez que le conteneur est demarre.", 0, {
+      code: "SERVICE_INJOIGNABLE",
+    });
   }
 
   if (res.status === 401 && secured) {
     clearToken();
-    window.dispatchEvent(new Event("auth:logout"));
-    throw new ApiError("Votre session a expire. Reconnectez-vous.", 401);
+    if (typeof window !== "undefined") window.dispatchEvent(new Event("auth:logout"));
+    throw new ApiError("Votre session a expire. Reconnectez-vous.", 401, { code: "SESSION_EXPIREE" });
   }
   if (res.status === 204) return null;
   const data = await res.json().catch(() => null);
   if (!res.ok) throw toError(res.status, data); // inclut 403 ACCES_INTERDIT
+  if (data === null) {
+    throw new ApiError("Le service a renvoye une reponse illisible.", res.status, { code: "REPONSE_INVALIDE" });
+  }
   return data;
+}
+
+/** Message affiche dans l'UI : toujours explicite, jamais un catch silencieux. */
+export function messageErreur(err, action = "effectuer l'operation") {
+  if (!err) return "Erreur inconnue.";
+  const code = err.code ? ` (${err.code})` : "";
+  if (err.status === 0) {
+    return `Impossible de ${action} : service injoignable${code}. Verifiez que le conteneur est demarre, puis reessayez.`;
+  }
+  if (err.status === 503) {
+    return `Impossible de ${action} : service indisponible${code}. ${err.message} Reessayez dans quelques instants.`;
+  }
+  if (err.status === 404) return `Impossible de ${action} : ressource introuvable${code}.`;
+  if (err.status === 403) return `Acces refuse${code} : ${err.message}`;
+  return `${err.message}${code}`.trim();
 }
 
 export const api = {
@@ -82,6 +103,7 @@ export const api = {
 
   // Vehicules
   vehicules: () => call("/vehicules"),
+  vehicule: (id) => call(`/vehicules/${id}`),
   chauffeurs: () => call("/chauffeurs"),
 
   // Entretiens (l'ancien parametre inclure_archives n'est plus envoye : archives fait foi)
