@@ -159,12 +159,13 @@ def consulter_entretiens_chauffeur(
     return clients.lister_entretiens_vehicule(chauffeur.vehicule_id)
 
 
+
 @router.post("/me/entretiens")
 def signaler_entretien_chauffeur(
     data: se.SignalementEntretienIn,
     chauffeur: models.Chauffeur = Depends(auth.get_chauffeur_courant),
 ):
-    """Signale un problème ou demande d'entretien pour le véhicule actif (transmet X-Service-Key à entretien-app)."""
+    """Signale un problème ou demande d'entretien pour le véhicule actif (transmet Bearer JWT et X-Service-Key à entretien-app)."""
     if not chauffeur.vehicule_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -174,8 +175,11 @@ def signaler_entretien_chauffeur(
             },
         )
 
+    token = auth.issue_chauffeur_token(chauffeur)
+
     payload = {
         "vehicule_id": chauffeur.vehicule_id,
+        "chauffeur_id": chauffeur.id_chauffeur,
         "type": data.type.upper(),
         "categorie": data.categorie.upper(),
         "description": data.description,
@@ -184,4 +188,4 @@ def signaler_entretien_chauffeur(
         "cout": data.cout,
     }
 
-    return clients.declarer_entretien(payload)
+    return clients.declarer_entretien(payload, bearer_token=token)

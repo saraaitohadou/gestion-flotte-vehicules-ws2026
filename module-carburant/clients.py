@@ -13,10 +13,17 @@ CHEMIN_VEHICULE = "/vehicules/{id}"
 CHEMIN_CHAUFFEUR = "/api/chauffeurs/{id}"
 
 
+def _en_tetes() -> dict:
+    """Cle de service partagee: les services Vehicule et Chauffeur l'acceptent
+    dans l'en-tete X-API-Key (variable SERVICE_API_KEY du docker-compose)."""
+    cle = os.getenv("SERVICE_API_KEY", "")
+    return {"X-API-Key": cle} if cle else {}
+
+
 def _verifier(base: str, chemin: str, ident: int, nom: str) -> None:
     url = base + chemin.format(id=ident)
     try:
-        reponse = httpx.get(url, timeout=TIMEOUT)
+        reponse = httpx.get(url, headers=_en_tetes(), timeout=TIMEOUT)
     except httpx.HTTPError:
         raise HTTPException(503, f"Service {nom} indisponible")
     if reponse.status_code == 404:

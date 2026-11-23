@@ -96,7 +96,29 @@ services:
       - flotte-network
 
   # ==========================================
-  # 5. MODULE ENTRETIEN (Laravel)
+  # 5. MODULE CARBURANT (Service FastAPI)
+  # ==========================================
+  carburant-service:
+    build:
+      context: ./module-carburant
+      dockerfile: Dockerfile
+    container_name: flotte-carburant-service
+    restart: unless-stopped
+    ports:
+      - "${CARBURANT_PORT:-8003}:8000"
+    environment:
+      <<: *auth-env
+      DATABASE_URL: mysql+pymysql://${DB_USER:-root}:${DB_ROOT_PASSWORD}@db-commune:3306/${DB_NAME:-gestion_flotte}
+      VEHICULE_SERVICE_URL: http://vehicule-service
+      CHAUFFEUR_SERVICE_URL: http://chauffeur-service:8000
+    depends_on:
+      db-commune:
+        condition: service_healthy
+    networks:
+      - flotte-network
+
+  # ==========================================
+  # 6. MODULE ENTRETIEN (Laravel)
   # ==========================================
   entretien-app:
     build:
@@ -105,7 +127,7 @@ services:
     restart: on-failure
     ports:
       - "${ENTRETIEN_PORT:-8004}:8004"
-    
+
     environment: &entretien-env
       APP_ENV: local
       APP_DEBUG: "true"
@@ -116,7 +138,7 @@ services:
       DB_CONNECTION: mysql
       DB_HOST: db-commune
       DB_PORT: 3306
-      DB_DATABASE: ${ENTRETIEN_DB_NAME:-gestion_flotte}
+      DB_DATABASE: ${DB_NAME:-gestion_flotte}
       DB_USERNAME: ${DB_USER:-root}
       DB_PASSWORD: ${DB_ROOT_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
@@ -145,7 +167,7 @@ services:
     container_name: flotte-entretien-scheduler
     restart: on-failure
     command: php artisan schedule:work
-    
+
     environment: *entretien-env
     depends_on:
       db-commune:
@@ -169,6 +191,7 @@ services:
       - ./module-entretien/docker/mock-chauffeur:/mock
     networks:
       - flotte-network
+
 volumes:
   db_commune_data:
 

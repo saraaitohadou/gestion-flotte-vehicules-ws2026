@@ -88,5 +88,15 @@ export const api = {
   permisExpires: (jours = 30) => request("/permis-expires", { params: { jours } }),
   eligibilite: (id) => request(`/${id}/eligibilite`),
   compatibilite: (id, categorie_vehicule) => request(`/${id}/compatibilite`, { params: { categorie_vehicule } }),
-  vehicules: () => request("/vehicules-disponibles").catch(() => []),
+  vehicules: async () => {
+    const res = await call("/api/vehicules").catch(() => []);
+    const liste = Array.isArray(res) ? res : (res?.data || res?.vehicules || []);
+    return liste.map((v) => ({
+      id: v.id,
+      immatriculation: v.immatriculation,
+      marque: v.marque,
+      modele: v.modele,
+      statut: v.statut || v.etat || "DISPONIBLE",
+    }));
+  },
 };

@@ -17,6 +17,17 @@ uvicorn main:app --reload
 
 Documentation interactive: http://127.0.0.1:8000/docs
 
+## Interface web
+
+Une interface web (HTML/CSS/JavaScript, sans installation) est servie par le
+service lui-meme: **http://127.0.0.1:8000/ui/** (ou le port expose par Docker,
+par exemple http://127.0.0.1:8003/ui/). Elle contient 5 ecrans: tableau de
+bord, liste des pleins (filtres, pagination, modification, suppression),
+nouveau plein, alertes de surconsommation et statistiques d'un vehicule. Elle
+appelle l'API du meme service (pas de configuration). Les vehicules et
+chauffeurs se saisissent par leur identifiant (la liste des vehicules appartient
+au service Vehicule).
+
 ## Variables d'environnement
 
 | Variable | Role | Defaut |
@@ -44,6 +55,7 @@ Chauffeur (voir `conftest.py`): ni Docker ni MySQL ne sont necessaires.
 
 | Fichier | Role |
 |---|---|
+| `static/` | Interface web (`index.html`, `style.css`, `app.js`) |
 | `main.py` | Cree l'application, les tables au demarrage, branche le routeur |
 | `database.py` | Connexion a la base (`DATABASE_URL`) |
 | `models.py` | Table `Carburant` (`vehicule_id` et `chauffeur_id` sont de simples identifiants) |

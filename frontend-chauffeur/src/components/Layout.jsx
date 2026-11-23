@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+﻿import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "./AuthContext.jsx";
 import { useToast } from "./Toast.jsx";
 
@@ -24,7 +24,7 @@ export default function Layout() {
           </div>
         </div>
         <nav>
-          <NavLink to="/" end>Tableau de bord</NavLink>
+          <NavLink to="/dashboard" end>Tableau de bord</NavLink>
           <NavLink to="/chauffeurs" end>Liste des chauffeurs</NavLink>
           <NavLink to="/chauffeurs/nouveau">Ajouter un chauffeur</NavLink>
         </nav>

@@ -164,9 +164,14 @@ def lister_entretiens_vehicule(vehicule_id: int) -> List[Dict[str, Any]]:
     return []
 
 
-def declarer_entretien(donnees: dict) -> Dict[str, Any]:
-    """POST /api/entretiens : transmet un signalement d'entretien avec un JWT de service."""
-    r = _appeler("POST", ENTRETIEN_URL, "/api/entretiens", json=donnees, headers=_entretien_headers())
+def declarer_entretien(donnees: dict, bearer_token: Optional[str] = None) -> Dict[str, Any]:
+    """POST /api/declarations-panne avec le Bearer JWT du chauffeur et X-Service-Key.
+
+    L'identite du chauffeur est prise par Entretien dans le JWT (jamais dans le corps) :
+    c'est la route declaree pour un signalement de panne. La correction precedente sur
+    /api/vehicules/{id}/entretiens (JWT de service) est conservee plus haut dans ce fichier.
+    """
+    r = _appeler("POST", ENTRETIEN_URL, "/api/declarations-panne", json=donnees, headers=_auth_headers(bearer_token))
     if r.status_code in (200, 201):
         data = r.json()
         if isinstance(data, dict) and "data" in data:
