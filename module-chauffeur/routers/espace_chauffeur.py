@@ -16,8 +16,10 @@ router = APIRouter(prefix="/espace-chauffeur", tags=["Espace Chauffeur"])
 
 @router.get("/vehicules")
 @router.get("/vehicules-disponibles")
-def lister_vehicules_service():
-    """Récupère les véhicules auprès de vehicule-service."""
+def lister_vehicules_service(
+    _chauffeur: models.Chauffeur = Depends(auth.get_chauffeur_courant),
+):
+    """Récupère les véhicules auprès de vehicule-service (chauffeur authentifié)."""
     return clients.lister_vehicules()
 
 

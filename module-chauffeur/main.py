@@ -104,5 +104,5 @@ def login_alias(data: auth.LoginRequest, request: Request):
 
 @app.get("/vehicules-disponibles", tags=["Véhicules"])
 @app.get("/api/vehicules-disponibles", tags=["Véhicules"])
-def vehicules_disponibles():
+def vehicules_disponibles(_admin: dict = Depends(auth.require_admin)):
     return clients.lister_vehicules()
