@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\StatutEntretien;
-use App\Enums\TypeEntretien;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -16,6 +15,7 @@ class Entretien extends Model
         'vehicule_id', 'type', 'categorie', 'description', 'date_entretien',
         'kilometrage', 'cout', 'statut', 'date_debut', 'date_fin',
         'date_prochaine_echeance', 'km_prochaine_echeance', 'archive_at',
+        'declaration_panne_id',
         'created_by', 'started_by', 'finished_by', 'cancelled_by', 'archived_by', 'cancelled_at',
     ];
 
@@ -28,7 +28,8 @@ class Entretien extends Model
     protected function casts(): array
     {
         return [
-            'type'                    => TypeEntretien::class,
+            // 'type' reste une chaine libre validee contre config('entretien.types') :
+            // aucun cast d'enum, sinon un nouveau type de config serait rejete.
             'statut'                  => StatutEntretien::class,
             'date_entretien'          => 'date:Y-m-d',
             'date_debut'              => 'datetime',

@@ -12,6 +12,11 @@ class DeclarationPanneTest extends TestCase
 {
     use RefreshDatabase;
 
+    private function admin(): array
+    {
+        return $this->tokenHeaders(\App\Support\AuthUser::ADMIN);
+    }
+
     private function fake(string $vehiculeStatut = 'DISPONIBLE', ?array $chauffeur = null, int $chauffeurHttp = 200): void
     {
         $chauffeur ??= ['id_chauffeur' => 1, 'statut' => 'EN_MISSION', 'permis_valide' => true,
@@ -38,7 +43,7 @@ class DeclarationPanneTest extends TestCase
     {
         $this->fake();
 
-        $this->postJson('/api/declarations-panne', $this->payload())
+        $this->postJson('/api/declarations-panne', $this->payload(), $this->admin())
             ->assertStatus(201)
             ->assertJsonPath('data.statut', 'DECLAREE')
             ->assertJsonPath('data.chauffeur_verifie', true);
@@ -50,14 +55,14 @@ class DeclarationPanneTest extends TestCase
     {
         $this->fake('EN_MISSION');
 
-        $this->postJson('/api/declarations-panne', $this->payload())->assertStatus(201);
+        $this->postJson('/api/declarations-panne', $this->payload(), $this->admin())->assertStatus(201);
     }
 
     public function test_vehicule_hors_service_est_refuse(): void
     {
         $this->fake('HORS_SERVICE');
 
-        $this->postJson('/api/declarations-panne', $this->payload())
+        $this->postJson('/api/declarations-panne', $this->payload(), $this->admin())
             ->assertStatus(422)
             ->assertJsonPath('error.code', 'VEHICULE_INACTIF');
 
@@ -68,7 +73,7 @@ class DeclarationPanneTest extends TestCase
         $this->fake('DISPONIBLE', ['id_chauffeur' => 1, 'statut' => 'EN_CONGE', 'permis_valide' => true,
                                    'selectionnable' => false, 'affectable' => false, 'motifs' => ['CHAUFFEUR_EN_CONGE']]);
 
-        $this->postJson('/api/declarations-panne', $this->payload())
+        $this->postJson('/api/declarations-panne', $this->payload(), $this->admin())
             ->assertStatus(422)
             ->assertJsonPath('error.code', 'CHAUFFEUR_NON_SELECTIONNABLE');
     }
@@ -77,7 +82,7 @@ class DeclarationPanneTest extends TestCase
     {
         $this->fake('DISPONIBLE', [], 404);
 
-        $this->postJson('/api/declarations-panne', $this->payload(['chauffeur_id' => 99]))
+        $this->postJson('/api/declarations-panne', $this->payload(['chauffeur_id' => 99]), $this->admin())
             ->assertStatus(404)
             ->assertJsonPath('error.code', 'CHAUFFEUR_INTROUVABLE');
     }
@@ -89,7 +94,7 @@ class DeclarationPanneTest extends TestCase
             '*/api/vehicules/1'              => Http::response(['id' => 1, 'statut' => 'DISPONIBLE', 'kilometrage' => 50000]),
         ]);
 
-        $this->postJson('/api/declarations-panne', $this->payload())
+        $this->postJson('/api/declarations-panne', $this->payload(), $this->admin())
             ->assertStatus(201)
             ->assertJsonPath('data.chauffeur_verifie', false);
     }
@@ -98,7 +103,7 @@ class DeclarationPanneTest extends TestCase
     {
         $this->fake();
 
-        $this->postJson('/api/declarations-panne', $this->payload(['categorie' => 'VIDANGE']))
+        $this->postJson('/api/declarations-panne', $this->payload(['categorie' => 'VIDANGE']), $this->admin())
             ->assertStatus(422)
             ->assertJsonPath('error.code', 'VALIDATION_ERREUR');
     }
@@ -107,7 +112,7 @@ class DeclarationPanneTest extends TestCase
     {
         $this->fake();
 
-        $this->postJson('/api/declarations-panne', [])->assertStatus(422);
+        $this->postJson('/api/declarations-panne', [], $this->admin())->assertStatus(422);
     }
 
     public function test_liste_et_detail(): void
@@ -115,9 +120,9 @@ class DeclarationPanneTest extends TestCase
         $this->fake();
         $d = DeclarationPanne::create($this->payload());
 
-        $this->getJson('/api/declarations-panne')->assertOk()->assertJsonFragment(['id' => $d->id]);
-        $this->getJson("/api/declarations-panne/{$d->id}")->assertOk()->assertJsonPath('data.id', $d->id);
-        $this->getJson('/api/declarations-panne/999999')->assertStatus(404)
+        $this->getJson('/api/declarations-panne', $this->admin())->assertOk()->assertJsonFragment(['id' => $d->id]);
+        $this->getJson("/api/declarations-panne/{$d->id}", $this->admin())->assertOk()->assertJsonPath('data.id', $d->id);
+        $this->getJson('/api/declarations-panne/999999', $this->admin())->assertStatus(404)
             ->assertJsonPath('error.code', 'RESSOURCE_INTROUVABLE');
     }
 }

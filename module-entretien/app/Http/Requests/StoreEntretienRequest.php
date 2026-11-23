@@ -17,7 +17,7 @@ class StoreEntretienRequest extends FormRequest
     {
         return [
             'vehicule_id'    => ['required', 'integer', 'min:1'],
-            'type'           => ['required', Rule::enum(TypeEntretien::class)],
+            'type'           => ['required', Rule::in(TypeEntretien::types())],
             'categorie'      => ['required', 'string'],
             'description'    => ['required', 'string'],
             'date_entretien' => ['required', 'date', 'after_or_equal:today'],
@@ -32,8 +32,8 @@ class StoreEntretienRequest extends FormRequest
             $type = $this->input('type');
             $cat  = $this->input('categorie');
 
-            if (is_string($type) && is_string($cat) && TypeEntretien::tryFrom($type)
-                && ! array_key_exists($cat, config("entretien.types.{$type}", []))) {
+            if (TypeEntretien::estValide($type) && is_string($cat)
+                && ! in_array($cat, TypeEntretien::categories($type), true)) {
                 $v->errors()->add('categorie', "La categorie {$cat} ne correspond pas au type {$type}.");
             }
         });

@@ -1,17 +1,23 @@
+# Surcharge "mode réel" : cible les services du stack racine (docker-compose.yml).
+# Seules les différences par rapport à docker-compose.yml sont déclarées ici.
+# Usage : docker compose -f docker-compose.yml -f docker-compose.real.yml up -d
 services:
   entretien-app:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     command: sh -c "php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=8004 --no-reload"
     environment:
-      VEHICULE_SERVICE_URL: "http://host.docker.internal:8090"
-      VEHICULE_API_PREFIX: ""
+      # Même URL et même préfixe que le stack racine (config/vehicule.php = source de vérité).
+      VEHICULE_SERVICE_URL: ${VEHICULE_SERVICE_URL:-http://vehicule-service:80}
+      VEHICULE_API_PREFIX: ${VEHICULE_API_PREFIX:-/api}
       VEHICULE_CHECK: "true"
+      CHAUFFEUR_SERVICE_URL: ${CHAUFFEUR_SERVICE_URL:-http://chauffeur-service:8000}
 
   entretien-scheduler:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
-      VEHICULE_SERVICE_URL: "http://host.docker.internal:8090"
-      VEHICULE_API_PREFIX: ""
+      VEHICULE_SERVICE_URL: ${VEHICULE_SERVICE_URL:-http://vehicule-service:80}
+      VEHICULE_API_PREFIX: ${VEHICULE_API_PREFIX:-/api}
       VEHICULE_CHECK: "true"
+      CHAUFFEUR_SERVICE_URL: ${CHAUFFEUR_SERVICE_URL:-http://chauffeur-service:8000}

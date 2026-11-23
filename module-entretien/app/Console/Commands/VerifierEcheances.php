@@ -8,7 +8,7 @@ use Illuminate\Console\Command;
 class VerifierEcheances extends Command
 {
     protected $signature   = 'entretiens:verifier-echeances';
-    protected $description = 'Calcule les échéances des entretiens préventifs et génère les alertes (CRON quotidien).';
+    protected $description = 'Calcule les échéances des préventifs et les alertes des entretiens planifiés (CRON quotidien).';
 
     public function handle(EcheanceService $service): int
     {
