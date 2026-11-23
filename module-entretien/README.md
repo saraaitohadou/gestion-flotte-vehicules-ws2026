@@ -57,7 +57,7 @@ Mocks : vehicule 1/2/5 = DISPONIBLE, 3 = HORS_SERVICE, 4 = ARCHIVE ; chauffeur 1
 
 ## Écarts assumés par rapport aux diagrammes
 
-Deux écarts de nommage sont volontairement conservés : ils sont documentés ici plutôt que modifiés dans le code.
+Trois écarts assumés sont volontairement conservés : ils sont documentés ici plutôt que modifiés dans le code.
 
 - **Diagramme de classes — type d'alerte `AVANT_ECHEANCE`** : le code utilise la constante `Alerte::PROCHE`
   (valeur `PROCHE`, voir `app/Models/Alerte.php` et `app/Services/EcheanceService.php`). `PROCHE` correspond à
@@ -69,6 +69,13 @@ Deux écarts de nommage sont volontairement conservés : ils sont documentés ic
   entretiens. Les seuls rôles sont `ADMINISTRATEUR`, `GESTIONNAIRE` et `CHAUFFEUR`
   (`app/Support/AuthUser.php`), conformément au §4.2 du cahier des charges. Aucun rôle `MECANICIEN`
   n'est créé.
+- **Cas d'utilisation / activité — changement de statut du véhicule à la planification** : le diagramme place
+  le passage du véhicule en `EN_MAINTENANCE` dès la planification. Le code vérifie bien la disponibilité à la
+  création (`GET` Véhicule dans `EntretienController::store()` via `VehiculeClient::verifierUtilisable()`),
+  mais ne modifie pas le statut du véhicule à ce moment-là : `EN_MAINTENANCE` n'est atteint qu'au **démarrage**
+  (`demarrer()`), et le retour à `DISPONIBLE` a lieu à la clôture ou à l'annulation d'un entretien `EN_COURS`.
+  Cet écart est imposé par les règles §4.2 (A5) et §4.4 (B1), prioritaires sur le diagramme (voir D3), et
+  confirmé par `test_planifier_un_entretien_ne_change_pas_le_statut_du_vehicule`.
 
 ## Regles metier
 
@@ -158,7 +165,7 @@ Reserve a l'ADMIN, uniquement sur un entretien TERMINE ou ANNULE. Historique com
 docker compose run --rm --no-deps -e DB_CONNECTION=sqlite -e DB_DATABASE=:memory: entretien-app php artisan test
 ```
 
-Attendu : **118 tests, 341 assertions** (suite exécutée via l'image Docker reconstruite, SQLite en mémoire). Les tests
+Attendu : **119 tests, 347 assertions** (suite exécutée via l'image Docker reconstruite, SQLite en mémoire). Les tests
 simulent les services externes (`Http::fake`) et couvrent notamment :
 - la saga/outbox : rejou idempotent par opération, 409 « même état », limite de tentatives/dead-letter,
   compensation avec compare-and-swap (`SynchronisationVehiculeTest`) ;
@@ -167,7 +174,8 @@ simulent les services externes (`Http::fake`) et couvrent notamment :
 - la cohérence des alertes : non-réouverture, exclusivité `PROCHE`/`EN_RETARD`, changement de catégorie
   (`AlertesNonReouvertesTest`) ;
 - la documentation : tout code d'erreur émis par `app/` est documenté dans `openapi.yaml`
-  (`OpenApiErreursDocumenteesTest`) ; création sur véhicule inexistant → 404 sans INSERT (`EntretienApiTest`) ;
+  (`OpenApiErreursDocumenteesTest`) ; création sur véhicule inexistant → 404 sans INSERT et planification
+  sans changement de statut Véhicule (`EntretienApiTest`) ;
 - le contrôle d'accès (`SecuriteAccesTest`) et la contrainte d'unicité `EN_COURS`.
 
 Le harnais (`tests/TestCase.php`) **n'injecte plus aucun token** : chaque test passe explicitement

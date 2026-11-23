@@ -94,6 +94,28 @@ class EntretienApiTest extends TestCase
         $this->assertDatabaseCount('integrations_outbox', 0);
     }
 
+    /**
+     * D2/D3 : la planification vérifie la disponibilité (GET Véhicule) mais ne modifie
+     * PAS le statut du véhicule. EN_MAINTENANCE n'est atteint qu'au démarrage (§4.2/§4.4).
+     */
+    public function test_planifier_un_entretien_ne_change_pas_le_statut_du_vehicule(): void
+    {
+        $this->fakeVehicule();
+
+        $this->postJson('/api/entretiens', $this->payload(), $this->auth(AuthUser::GESTIONNAIRE))
+            ->assertStatus(201)
+            ->assertJsonPath('data.statut', 'PLANIFIE');
+
+        Http::assertSent(fn (Request $r) => $r->method() === 'GET'
+            && str_ends_with($r->url(), '/api/vehicules/1'));
+        Http::assertNotSent(fn (Request $r) => $r->method() === 'PATCH');
+        $this->assertDatabaseCount('integrations_outbox', 0);
+        $this->assertDatabaseHas('entretiens', [
+            'vehicule_id' => 1,
+            'statut'      => StatutEntretien::Planifie->value,
+        ]);
+    }
+
     public function test_kilometrage_inferieur_au_vehicule_est_refuse(): void
     {
         $this->fakeVehicule(km: 50000);
