@@ -13,6 +13,11 @@ class EntretienArchivageTest extends TestCase
 {
     use RefreshDatabase;
 
+    private function admin(): array
+    {
+        return $this->tokenHeaders(\App\Support\AuthUser::ADMIN);
+    }
+
     private function fakeVehicule(string $statut = 'DISPONIBLE', int $km = 50000, int $id = 1): void
     {
         Http::fake([
@@ -43,7 +48,7 @@ class EntretienArchivageTest extends TestCase
         $this->fakeVehicule();
         $e = $this->entretien(['statut' => StatutEntretien::Termine, 'date_fin' => now()]);
 
-        $this->deleteJson("/api/entretiens/{$e->id}")->assertOk();
+        $this->deleteJson("/api/entretiens/{$e->id}", [], $this->admin())->assertOk();
 
         $this->assertDatabaseHas('entretiens', ['id' => $e->id]);
         $e->refresh();
@@ -56,7 +61,7 @@ class EntretienArchivageTest extends TestCase
         $this->fakeVehicule();
         $e = $this->entretien(['statut' => StatutEntretien::Annule]);
 
-        $this->deleteJson("/api/entretiens/{$e->id}")->assertOk();
+        $this->deleteJson("/api/entretiens/{$e->id}", [], $this->admin())->assertOk();
 
         $this->assertNotNull($e->fresh()->archive_at);
     }
@@ -66,7 +71,7 @@ class EntretienArchivageTest extends TestCase
         $this->fakeVehicule();
         $e = $this->entretien();
 
-        $this->deleteJson("/api/entretiens/{$e->id}")
+        $this->deleteJson("/api/entretiens/{$e->id}", [], $this->admin())
             ->assertStatus(409)
             ->assertJsonPath('error.code', 'ARCHIVAGE_INTERDIT');
 
@@ -78,7 +83,7 @@ class EntretienArchivageTest extends TestCase
         $this->fakeVehicule();
         $e = $this->entretien(['statut' => StatutEntretien::EnCours]);
 
-        $this->deleteJson("/api/entretiens/{$e->id}")
+        $this->deleteJson("/api/entretiens/{$e->id}", [], $this->admin())
             ->assertStatus(409)
             ->assertJsonPath('error.code', 'ARCHIVAGE_INTERDIT');
     }
@@ -88,15 +93,15 @@ class EntretienArchivageTest extends TestCase
         $this->fakeVehicule();
         $e = $this->entretien(['statut' => StatutEntretien::Termine, 'date_fin' => now()]);
 
-        $this->deleteJson("/api/entretiens/{$e->id}")->assertOk();
-        $this->deleteJson("/api/entretiens/{$e->id}")
+        $this->deleteJson("/api/entretiens/{$e->id}", [], $this->admin())->assertOk();
+        $this->deleteJson("/api/entretiens/{$e->id}", [], $this->admin())
             ->assertStatus(409)
             ->assertJsonPath('error.code', 'DEJA_ARCHIVE');
     }
 
     public function test_archiver_entretien_inexistant_renvoie_404_json(): void
     {
-        $this->deleteJson('/api/entretiens/999999')
+        $this->deleteJson('/api/entretiens/999999', [], $this->admin())
             ->assertStatus(404)
             ->assertJsonPath('error.code', 'RESSOURCE_INTROUVABLE');
     }
@@ -109,7 +114,7 @@ class EntretienArchivageTest extends TestCase
         $a = $this->entretien();
         $b = $this->entretien(['description' => 'Freins', 'categorie' => 'FREINS']);
 
-        $this->getJson('/api/vehicules/1/entretiens')
+        $this->getJson('/api/vehicules/1/entretiens', $this->admin())
             ->assertOk()
             ->assertJsonFragment(['id' => $a->id])
             ->assertJsonFragment(['id' => $b->id]);
@@ -120,7 +125,7 @@ class EntretienArchivageTest extends TestCase
         $this->fakeVehicule();
         $autre = $this->entretien(['vehicule_id' => 2]);
 
-        $this->getJson('/api/vehicules/1/entretiens')
+        $this->getJson('/api/vehicules/1/entretiens', $this->admin())
             ->assertOk()
             ->assertJsonMissing(['id' => $autre->id]);
     }

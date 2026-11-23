@@ -19,11 +19,7 @@ class EntretienComplementTest extends TestCase
 
     private function auth(string $role, ?int $vehicule = null): array
     {
-        $claims = ['sub' => "test-{$role}", 'role' => $role];
-        if ($vehicule) {
-            $claims['vehicule_id'] = $vehicule;
-        }
-        return [];
+        return $this->tokenHeaders($role, $vehicule);
     }
 
     private function fakeVehicule(string $statut = 'DISPONIBLE', int $km = 50000, int $id = 1): void

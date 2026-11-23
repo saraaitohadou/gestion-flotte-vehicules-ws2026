@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../api.js";
+import { formatDate, formatKm } from "../utils.js";
 
 export default function Alertes() {
   const [rows, setRows] = useState([]);
@@ -19,14 +21,12 @@ export default function Alertes() {
     })();
   }, []);
 
-  const cols = rows.length ? Object.keys(rows[0]).filter((k) => typeof rows[0][k] !== "object") : [];
-
   return (
     <>
       <div className="page-head">
         <div>
           <h1>Alertes</h1>
-          <p className="muted">Echeances proches ou depassees (15 jours / 500 km).</p>
+          <p className="muted">Echeances proches ou depassees (15 jours / 500 km) et entretiens planifies.</p>
         </div>
       </div>
       {error && <p className="alert alert-bad" role="alert">{error}</p>}
@@ -35,19 +35,30 @@ export default function Alertes() {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ textAlign: "left", color: "var(--muted)", fontSize: "0.85rem" }}>
-                {cols.map((k) => <th key={k} style={{ padding: 8 }}>{k}</th>)}
+                <th style={{ padding: 8 }}>Vehicule</th>
+                <th>Categorie</th>
+                <th>Type</th>
+                <th>Message</th>
+                <th>Echeance</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((a, i) => (
-                <tr key={a.id ?? i} style={{ borderTop: "1px solid var(--line)" }}>
-                  {cols.map((k) => (
-                    <td key={k} style={{ padding: 8 }}>
-                      {["statut", "niveau", "type"].includes(k)
-                        ? <span className={`badge badge-${String(a[k]).includes("RETARD") ? "bad" : "warn"}`}>{String(a[k])}</span>
-                        : String(a[k] ?? "-")}
-                    </td>
-                  ))}
+              {rows.map((a) => (
+                <tr key={a.id} style={{ borderTop: "1px solid var(--line)" }}>
+                  <td style={{ padding: 8 }}>#{a.vehicule_id}</td>
+                  <td>{a.categorie ?? "-"}</td>
+                  <td>
+                    <span className={`badge badge-${a.type === "EN_RETARD" ? "bad" : "warn"}`}>
+                      {a.type}
+                    </span>
+                  </td>
+                  <td>{a.message}</td>
+                  <td>
+                    {formatDate(a.echeance_date)}
+                    {a.echeance_km != null && ` · ${formatKm(a.echeance_km)}`}
+                  </td>
+                  <td className="right"><Link to={`/entretien/${a.entretien_id}`}>Entretien</Link></td>
                 </tr>
               ))}
             </tbody>

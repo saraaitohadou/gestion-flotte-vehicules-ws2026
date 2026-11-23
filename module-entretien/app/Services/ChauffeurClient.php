@@ -11,7 +11,9 @@ class ChauffeurClient
 {
     private function http(): PendingRequest
     {
-        return Http::timeout((int) config('chauffeur.timeout', 3))->acceptJson();
+        return Http::timeout((int) config('chauffeur.timeout', 3))
+            ->acceptJson()
+            ->withHeaders(['X-API-Key' => (string) config('chauffeur.api_key', '')]);
     }
 
     private function url(string $path): string
@@ -55,5 +57,29 @@ class ChauffeurClient
         }
 
         return $c;
+    }
+
+    /** Liste des chauffeurs actifs (liste deroulante de declaration de panne). */
+    public function lister(): array
+    {
+        try {
+            $response = $this->http()
+                ->withHeaders(['X-API-Key' => (string) config('chauffeur.api_key', '')])
+                ->get($this->url('/chauffeurs'));
+        } catch (Throwable) {
+            throw new BusinessException('Service Chauffeur injoignable.', 503, 'CHAUFFEUR_SERVICE_INDISPONIBLE');
+        }
+
+        if (! $response->successful()) {
+            throw new BusinessException('Service Chauffeur indisponible.', 503, 'CHAUFFEUR_SERVICE_INDISPONIBLE');
+        }
+
+        $json = $response->json();
+        $liste = array_values($json['data'] ?? $json ?? []);
+
+        return array_values(array_filter(
+            $liste,
+            fn ($c) => strtoupper((string) ($c['statut'] ?? '')) !== 'INACTIF'
+        ));
     }
 }

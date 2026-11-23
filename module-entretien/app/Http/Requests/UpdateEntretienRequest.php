@@ -29,8 +29,8 @@ class UpdateEntretienRequest extends FormRequest
             $cat = $this->input('categorie');
 
             if ($entretien && is_string($cat)
-                && ! array_key_exists($cat, config("entretien.types.{$entretien->type->value}", []))) {
-                $v->errors()->add('categorie', "La categorie {$cat} ne correspond pas au type {$entretien->type->value}.");
+                && ! array_key_exists($cat, (array) config("entretien.types.{$entretien->type}", []))) {
+                $v->errors()->add('categorie', "La categorie {$cat} ne correspond pas au type {$entretien->type}.");
             }
         });
     }

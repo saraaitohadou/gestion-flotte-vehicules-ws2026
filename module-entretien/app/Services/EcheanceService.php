@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\StatutEntretien;
 use App\Exceptions\BusinessException;
 use App\Models\Alerte;
 use App\Models\Entretien;
@@ -10,7 +11,10 @@ use Carbon\Carbon;
 /** Calcul quotidien des échéances et génération des alertes (appelé par le CRON). */
 class EcheanceService
 {
-    public function __construct(private VehiculeClient $vehicules) {}
+    public function __construct(
+        private VehiculeClient $vehicules,
+        private EntretienService $entretiens,
+    ) {}
 
     /** @return array{verifies:int, alertes_proche:int, alertes_retard:int} */
     public function verifier(): array
@@ -47,16 +51,85 @@ class EcheanceService
                 }
             }
 
-            if ($retard) {
-                $this->creerAlerte($e, Alerte::EN_RETARD, $retard);
-                $stats['alertes_retard']++;
-            } elseif ($proche) {
-                $this->creerAlerte($e, Alerte::PROCHE, $proche);
-                $stats['alertes_proche']++;
+            // Un entretien ne peut avoir QU'UNE alerte ouverte : EN_RETARD
+            // l'emporte sur PROCHE, et toute alerte devenue sans objet est
+            // résolue automatiquement lors d'un recalcul (date ou catégorie).
+            $type    = $retard ? Alerte::EN_RETARD : ($proche ? Alerte::PROCHE : null);
+            $raisons = $retard ?: $proche;
+
+            $this->resoudreAlertesObsoletes($e, $type);
+
+            if ($type !== null) {
+                $this->creerAlerte($e, $type, $raisons);
+                $stats[$type === Alerte::EN_RETARD ? 'alertes_retard' : 'alertes_proche']++;
+            }
+        }
+
+        // Extension : un entretien PLANIFIE dont la date approche (ou est dépassée)
+        // génère sa propre alerte. La "prochaine échéance" des préventifs terminés
+        // ci-dessus reste inchangée ; aucun appel Véhicule n'est ajouté ici.
+        foreach (Entretien::query()
+            ->where('statut', StatutEntretien::Planifie->value)
+            ->whereNull('archive_at')
+            ->orderBy('id')
+            ->cursor() as $e) {
+            $stats['verifies']++;
+
+            $date = $e->date_entretien;
+            if ($date === null) {
+                continue;
+            }
+
+            $jours   = (int) $aujourdhui->diffInDays($date->copy()->startOfDay(), false);
+            $type    = null;
+            $message = null;
+
+            if ($this->entretiens->estEnRetard($date, $aujourdhui)) {
+                $type    = Alerte::EN_RETARD;
+                $message = "Entretien #{$e->id} planifié le {$date->format('d/m/Y')} (en retard de "
+                    . abs($jours) . ' jour(s))';
+            } elseif ($jours <= $joursAvant) {
+                $type    = Alerte::PROCHE;
+                $message = "Entretien #{$e->id} planifié le {$date->format('d/m/Y')} (dans {$jours} jour(s))";
+            }
+
+            $this->resoudreAlertesObsoletes($e, $type);
+
+            if ($type !== null) {
+                $this->creerAlertePlanifiee($e, $type, $message);
+                $stats[$type === Alerte::EN_RETARD ? 'alertes_retard' : 'alertes_proche']++;
             }
         }
 
         return $stats;
+    }
+
+    /** Alerte liée à la date d'un entretien PLANIFIE (échéance_date = date_entretien). */
+    private function creerAlertePlanifiee(Entretien $e, string $type, string $message): void
+    {
+        Alerte::updateOrCreate(
+            ['entretien_id' => $e->id, 'type' => $type],
+            [
+                'vehicule_id'   => $e->vehicule_id,
+                'categorie'     => $e->categorie,
+                'message'       => $message,
+                'echeance_date' => $e->date_entretien?->toDateString(),
+                'echeance_km'   => null,
+                // updateOrCreate ne réouvre jamais une alerte déjà résolue.
+            ],
+        );
+    }
+
+    /** Ferme les alertes ouvertes qui ne correspondent plus à l'état recalculé. */
+    private function resoudreAlertesObsoletes(Entretien $e, ?string $typeConserve): void
+    {
+        $requete = Alerte::where('entretien_id', $e->id)->whereNull('resolue_at');
+
+        if ($typeConserve !== null) {
+            $requete->where('type', '!=', $typeConserve);
+        }
+
+        $requete->update(['resolue_at' => now()]);
     }
 
     private function creerAlerte(Entretien $e, string $type, array $raisons): void
@@ -69,7 +142,8 @@ class EcheanceService
                 'message'       => "Véhicule #{$e->vehicule_id} - {$e->categorie} : " . implode(' ; ', $raisons),
                 'echeance_date' => $e->date_prochaine_echeance?->toDateString(),
                 'echeance_km'   => $e->km_prochaine_echeance,
-                'resolue_at'    => null,
+                // Ne jamais réouvrir une alerte résolue manuellement : updateOrCreate
+                // ne met à jour QUE le message/les échéances d'une alerte existante.
             ],
         );
     }
@@ -77,9 +151,10 @@ class EcheanceService
     /** Kilométrage actuel (null si le service Véhicule est injoignable : on ne bloque pas le CRON). */
     private function kmActuel(int $vehiculeId, array &$cache): ?int
     {
-        if (!array_key_exists($vehiculeId, $cache)) {
+        if (! array_key_exists($vehiculeId, $cache)) {
             try {
-                $cache[$vehiculeId] = $this->vehicules->find($vehiculeId)['kilometrage'];
+                $donnees             = $this->vehicules->find($vehiculeId);
+                $cache[$vehiculeId]  = isset($donnees['kilometrage']) ? (int) $donnees['kilometrage'] : null;
             } catch (BusinessException) {
                 $cache[$vehiculeId] = null;
             }

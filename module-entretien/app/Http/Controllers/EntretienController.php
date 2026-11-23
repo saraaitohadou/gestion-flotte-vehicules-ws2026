@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Enums\StatutEntretien;
-use App\Enums\TypeEntretien;
 use App\Exceptions\BusinessException;
 use App\Http\Requests\StoreEntretienRequest;
 use App\Http\Requests\UpdateEntretienRequest;
@@ -11,7 +10,9 @@ use App\Http\Resources\EntretienResource;
 use App\Models\Alerte;
 use App\Models\Entretien;
 use App\Models\EntretienHistorique;
+use App\Models\IntegrationOutbox;
 use App\Services\EntretienService;
+use App\Services\SynchronisationVehiculeService;
 use App\Services\VehiculeClient;
 use App\Support\AuthUser;
 use Carbon\Carbon;
@@ -19,12 +20,14 @@ use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\DB;
 
 class EntretienController extends Controller
 {
     public function __construct(
         private EntretienService $service,
         private VehiculeClient $vehicules,
+        private SynchronisationVehiculeService $synchronisation,
     ) {}
 
     // ---------------- Lecture ----------------
@@ -33,10 +36,21 @@ class EntretienController extends Controller
     {
         $user       = AuthUser::fromRequest($request);
         $vehiculeId = $this->limiterAuVehicule($user, $request->integer('vehicule_id') ?: null);
+        $archives   = $request->query('archives');
+
+        // Compatibilité : l'ancien drapeau inclure_archives=1 équivaut à archives=inclure.
+        if ($archives === null || $archives === '') {
+            $archives = $request->boolean('inclure_archives') ? 'inclure' : 'exclure';
+        }
+        if (is_string($archives)) {
+            $archives = strtolower($archives);
+        }
+        validator(['archives' => $archives], ['archives' => 'in:exclure,inclure,seulement'])->validate();
 
         $query = Entretien::query()
             ->orderByDesc('date_entretien')->orderByDesc('id')
-            ->when(! $request->boolean('inclure_archives'), fn ($q) => $q->whereNull('archive_at'))
+            ->when($archives === 'exclure', fn ($q) => $q->whereNull('archive_at'))
+            ->when($archives === 'seulement', fn ($q) => $q->whereNotNull('archive_at'))
             ->when($vehiculeId, fn ($q) => $q->where('vehicule_id', $vehiculeId))
             ->when($request->filled('statut'), fn ($q) => $q->where('statut', strtoupper((string) $request->input('statut'))))
             ->when($request->filled('type'), fn ($q) => $q->where('type', strtoupper((string) $request->input('type'))))
@@ -73,8 +87,11 @@ class EntretienController extends Controller
         $user = AuthUser::fromRequest($request);
         $data = $request->validated();
 
-        // Vehicule inexistant, archive ou hors service => refuse
-        $vehicule = $this->vehicules->verifierUtilisable($data['vehicule_id']);
+        // Vehicule inexistant, archive, hors service OU EN_MISSION => refuse dès la création.
+        $vehicule = $this->vehicules->verifierUtilisable(
+            $data['vehicule_id'],
+            VehiculeClient::STATUTS_INTERDITS_ENTRETIEN
+        );
         $this->verifierKilometrage((int) $data['kilometrage'], $vehicule);
 
         $entretien = Entretien::create($data + [
@@ -98,7 +115,34 @@ class EntretienController extends Controller
             );
         }
 
-        $entretien->update($request->validated());
+        $donnees = $request->validated();
+        $ancienneCategorie = $entretien->categorie;
+
+        // Un PUT ne peut pas baisser le compteur sous le kilométrage réel du véhicule.
+        // Le service n'est interrogé que si le client modifie effectivement le km.
+        if (array_key_exists('kilometrage', $donnees)) {
+            $vehicule = $this->vehicules->find($entretien->vehicule_id);
+            $this->verifierKilometrage((int) $donnees['kilometrage'], $vehicule);
+        }
+
+        // Changer de catégorie change la périodicité : l'échéance doit être recalculée
+        // immédiatement (et non pas seulement à la prochaine clôture).
+        if (array_key_exists('categorie', $donnees) && $donnees['categorie'] !== $ancienneCategorie) {
+            $kmReference = $donnees['kilometrage'] ?? $entretien->kilometrage;
+            [$dateEcheance, $kmEcheance] = $this->service->calculerEcheance(
+                $entretien->replicate()->fill(['categorie' => $donnees['categorie']]),
+                Carbon::parse($donnees['date_entretien'] ?? $entretien->date_entretien),
+                $kmReference !== null ? (int) $kmReference : null
+            );
+
+            $donnees['date_prochaine_echeance'] = $dateEcheance;
+            $donnees['km_prochaine_echeance']   = $kmEcheance;
+
+            // L'ancienne échéance n'est plus d'actualité : on clôt ses alertes ouvertes.
+            $this->resoudreAlertesEcheance($entretien, $ancienneCategorie);
+        }
+
+        $entretien->update($donnees);
 
         return new EntretienResource($entretien);
     }
@@ -110,31 +154,52 @@ class EntretienController extends Controller
 
         $this->verifierTransition($entretien, StatutEntretien::EnCours);
 
-        $dejaEnCours = Entretien::where('vehicule_id', $entretien->vehicule_id)
-            ->where('statut', StatutEntretien::EnCours->value)
-            ->where('id', '!=', $entretien->id)
-            ->exists();
+        // Pré-vol : si le service Véhicule est injoignable, rien n'est écrit (règle de disponibilité).
+        $vehicule       = $this->vehicules->find($entretien->vehicule_id);
+        $statutVehicule = strtoupper((string) ($vehicule['statut'] ?? 'DISPONIBLE'));
 
-        if ($dejaEnCours) {
+        // Règle §4.4 : EN_MAINTENANCE n'est atteignable que depuis DISPONIBLE.
+        // Refus avant toute écriture locale et avant toute ligne d'outbox.
+        if ($statutVehicule !== 'DISPONIBLE') {
             throw new BusinessException(
-                'Ce vehicule a deja un entretien EN_COURS.',
+                "Le vehicule #{$entretien->vehicule_id} doit etre DISPONIBLE pour demarrer un entretien (statut actuel : {$statutVehicule}).",
                 409,
-                'ENTRETIEN_DEJA_EN_COURS'
+                'VEHICULE_NON_DISPONIBLE',
+                ['statut_vehicule' => $statutVehicule]
             );
         }
 
-        // Si le service Vehicule est injoignable : 503 et rien n'est enregistre
-        $this->vehicules->changerStatut($entretien->vehicule_id, 'EN_MAINTENANCE');
+        $avant = $this->snapshot($entretien);
 
-        $entretien->update([
-            'statut'     => StatutEntretien::EnCours,
-            'date_debut' => isset($data['date_debut']) ? Carbon::parse($data['date_debut']) : now(),
-            'started_by' => $user->id,
-        ]);
+        // Écriture locale + outbox dans UNE transaction : aucun PATCH n'est envoyé avant le commit.
+        $outbox = DB::transaction(function () use (&$entretien, $data, $user, $vehicule, $statutVehicule, $avant) {
+            $e = $this->verrouiller($entretien->id);
+            $this->verifierTransition($e, StatutEntretien::EnCours);
+            $this->verifierPasDejaEnCours($e);
 
-        $this->tracer($entretien, StatutEntretien::Planifie, StatutEntretien::EnCours, $user);
+            $e->update([
+                'statut'     => StatutEntretien::EnCours,
+                'date_debut' => isset($data['date_debut']) ? Carbon::parse($data['date_debut']) : now(),
+                'started_by' => $user->id,
+            ]);
 
-        return new EntretienResource($entretien);
+            $this->tracer($e, StatutEntretien::Planifie, StatutEntretien::EnCours, $user);
+            $this->resoudreAlertesPlanifiees($e);
+            $entretien = $e;
+
+            return $this->synchronisation->planifier(
+                $e,
+                [['champ' => 'statut', 'valeur' => 'EN_MAINTENANCE']],
+                [['champ' => 'statut', 'valeur' => $statutVehicule]],
+                $avant,
+                $this->snapshot($e),
+                $vehicule
+            );
+        });
+
+        $this->appliquerOuCompenser($outbox, $user);
+
+        return new EntretienResource($entretien->fresh()->load('historique'));
     }
 
     public function terminer(Request $request, Entretien $entretien): EntretienResource
@@ -153,61 +218,113 @@ class EntretienController extends Controller
             throw new BusinessException('date_fin ne peut pas preceder date_debut.', 422, 'DATE_FIN_INVALIDE');
         }
 
-        $kmFourni = isset($data['kilometrage']);
-        $km       = $kmFourni ? (int) $data['kilometrage'] : $entretien->kilometrage;
+        // Pré-vol : état réel du véhicule (utile pour la compensation).
+        $vehicule       = $this->vehicules->find($entretien->vehicule_id);
+        $statutVehicule = strtoupper((string) ($vehicule['statut'] ?? 'DISPONIBLE'));
+        $kmVehicule     = (int) ($vehicule['kilometrage'] ?? $entretien->kilometrage);
+        $avant          = $this->snapshot($entretien);
 
-        if ($kmFourni) {
-            $this->verifierKilometrage($km, $this->vehicules->find($entretien->vehicule_id));
-        }
+        // Règle 7 : le compteur du véhicule est TOUJOURS mis à jour à la clôture,
+        // avec le kilométrage fourni ou, à défaut, celui de l'entretien.
+        $km = isset($data['kilometrage'])
+            ? (int) $data['kilometrage']
+            : max((int) $entretien->kilometrage, (int) ($vehicule['kilometrage'] ?? 0));
+        $this->verifierKilometrage($km, $vehicule);
 
-        $this->vehicules->changerStatut($entretien->vehicule_id, 'DISPONIBLE');
-        if ($kmFourni) {
-            $this->vehicules->changerKilometrage($entretien->vehicule_id, $km);
-        }
+        $outbox = DB::transaction(function () use (&$entretien, $data, $dateFin, $km, $user, $vehicule, $statutVehicule, $kmVehicule, $avant) {
+            $e = $this->verrouiller($entretien->id);
+            $this->verifierTransition($e, StatutEntretien::Termine);
 
-        [$dateEcheance, $kmEcheance] = $this->calculerEcheance($entretien, $dateFin, $km);
+            [$dateEcheance, $kmEcheance] = $this->service->calculerEcheance($e, $dateFin, $km);
 
-        $entretien->update([
-            'statut'                  => StatutEntretien::Termine,
-            'date_fin'                => $dateFin,
-            'kilometrage'             => $km,
-            'cout'                    => $data['cout'] ?? $entretien->cout,
-            'date_prochaine_echeance' => $dateEcheance,
-            'km_prochaine_echeance'   => $kmEcheance,
-            'finished_by'             => $user->id,
-        ]);
+            $e->update([
+                'statut'                  => StatutEntretien::Termine,
+                'date_fin'                => $dateFin,
+                'kilometrage'             => $km,
+                'cout'                    => $data['cout'] ?? $e->cout,
+                'date_prochaine_echeance' => $dateEcheance,
+                'km_prochaine_echeance'   => $kmEcheance,
+                'finished_by'             => $user->id,
+            ]);
 
-        // L'echeance est refaite : les anciennes alertes de ce vehicule/categorie sont resolues
-        Alerte::where('vehicule_id', $entretien->vehicule_id)
-            ->where('categorie', $entretien->categorie)
-            ->whereNull('resolue_at')
-            ->update(['resolue_at' => now()]);
+            // L'échéance est refaite : les anciennes alertes de ce véhicule/catégorie sont résolues,
+            // mais jamais l'alerte PLANIFIE d'un autre entretien (voir resoudreAlertesEcheance()).
+            $this->resoudreAlertesEcheance($e, $e->categorie);
 
-        $this->tracer($entretien, StatutEntretien::EnCours, StatutEntretien::Termine, $user);
+            $this->tracer($e, StatutEntretien::EnCours, StatutEntretien::Termine, $user);
+            $entretien = $e;
 
-        return new EntretienResource($entretien);
+            return $this->synchronisation->planifier(
+                $e,
+                [
+                    ['champ' => 'statut', 'valeur' => 'DISPONIBLE'],
+                    ['champ' => 'kilometrage', 'valeur' => $km],
+                ],
+                [
+                    ['champ' => 'kilometrage', 'valeur' => $kmVehicule],
+                    ['champ' => 'statut', 'valeur' => $statutVehicule],
+                ],
+                $avant,
+                $this->snapshot($e),
+                $vehicule
+            );
+        });
+
+        $this->appliquerOuCompenser($outbox, $user);
+
+        return new EntretienResource($entretien->fresh()->load('historique'));
     }
 
     public function annuler(Request $request, Entretien $entretien): EntretienResource
     {
-        $user  = AuthUser::fromRequest($request);
-        $avant = $entretien->statut;
+        $user = AuthUser::fromRequest($request);
 
         $this->verifierTransition($entretien, StatutEntretien::Annule);
 
-        if ($avant === StatutEntretien::EnCours) {
-            $this->vehicules->changerStatut($entretien->vehicule_id, 'DISPONIBLE');
+        $avant          = $this->snapshot($entretien);
+        $statutVehicule = null;
+        $vehicule       = [];
+
+        if ($entretien->statut === StatutEntretien::EnCours) {
+            // Pré-vol : si le service est injoignable, aucune annulation n'est enregistrée.
+            $vehicule       = $this->vehicules->find($entretien->vehicule_id);
+            $statutVehicule = strtoupper((string) ($vehicule['statut'] ?? 'EN_MAINTENANCE'));
         }
 
-        $entretien->update([
-            'statut'       => StatutEntretien::Annule,
-            'cancelled_by' => $user->id,
-            'cancelled_at' => now(),
-        ]);
+        $outbox = DB::transaction(function () use (&$entretien, $user, $vehicule, $avant, $statutVehicule) {
+            $e           = $this->verrouiller($entretien->id);
+            $statutAvant = $e->statut;
+            $this->verifierTransition($e, StatutEntretien::Annule);
 
-        $this->tracer($entretien, $avant, StatutEntretien::Annule, $user);
+            $e->update([
+                'statut'       => StatutEntretien::Annule,
+                'cancelled_by' => $user->id,
+                'cancelled_at' => now(),
+            ]);
 
-        return new EntretienResource($entretien);
+            $this->tracer($e, $statutAvant, StatutEntretien::Annule, $user);
+            $this->resoudreAlertesPlanifiees($e);
+            $entretien = $e;
+
+            if ($statutAvant !== StatutEntretien::EnCours) {
+                return null; // aucun véhicule à synchroniser
+            }
+
+            return $this->synchronisation->planifier(
+                $e,
+                [['champ' => 'statut', 'valeur' => 'DISPONIBLE']],
+                [['champ' => 'statut', 'valeur' => $statutVehicule]],
+                $avant,
+                $this->snapshot($e),
+                $vehicule ?? []
+            );
+        });
+
+        if ($outbox !== null) {
+            $this->appliquerOuCompenser($outbox, $user);
+        }
+
+        return new EntretienResource($entretien->fresh()->load('historique'));
     }
 
     /** Archivage (jamais de suppression physique). Route reservee a ADMINISTRATEUR. */
@@ -231,11 +348,122 @@ class EntretienController extends Controller
             'archive_at'  => now(),
             'archived_by' => $user->id,
         ]);
+        $this->resoudreAlertesPlanifiees($entretien);
 
         return new EntretienResource($entretien);
     }
 
     // ---------------- Helpers ----------------
+
+    /** Applique la mutation ; en cas d'échec on compense puis on remonte une erreur explicite. */
+    private function appliquerOuCompenser(IntegrationOutbox $outbox, AuthUser $user): void
+    {
+        try {
+            $this->synchronisation->appliquer($outbox);
+        } catch (BusinessException $e) {
+            $annulee = $this->synchronisation->compenser($outbox, $user);
+            $statut  = (string) IntegrationOutbox::whereKey($outbox->id)->value('statut');
+
+            if ($annulee) {
+                throw new BusinessException(
+                    'Synchronisation avec le service Véhicule impossible : modification annulée.',
+                    503,
+                    'SYNCHRONISATION_VEHICULE_ECHOUEE',
+                    ['cause' => $e->errorCode, 'outbox_id' => $outbox->id]
+                );
+            }
+
+            if ($statut === IntegrationOutbox::COMPENSATION_IGNOREE) {
+                throw new BusinessException(
+                    'La compensation a été refusée : l’entretien a évolué entre-temps. Aucun état récent n’a été écrasé.',
+                    409,
+                    'COMPENSATION_IGNOREE',
+                    ['cause' => $e->errorCode, 'outbox_id' => $outbox->id]
+                );
+            }
+
+            if ($statut === IntegrationOutbox::ECHEC_DEFINITIF) {
+                throw new BusinessException(
+                    'Synchronisation Véhicule en échec définitif (dead-letter) : intervention manuelle requise.',
+                    503,
+                    'SYNCHRONISATION_TENTATIVES_EPUISEES',
+                    ['cause' => $e->errorCode, 'outbox_id' => $outbox->id]
+                );
+            }
+
+            // État du véhicule illisible : on ne devine pas, la mutation est rejouée
+            // automatiquement par le CRON et l'écriture locale est conservée.
+            throw new BusinessException(
+                'Service Véhicule injoignable : synchronisation différée et rejouée automatiquement.',
+                503,
+                'SYNCHRONISATION_VEHICULE_EN_ATTENTE',
+                ['cause' => $e->errorCode, 'outbox_id' => $outbox->id]
+            );
+        }
+    }
+
+    /** Verrouille la ligne pour éviter deux transitions concurrentes sur le même entretien. */
+    private function verrouiller(int $id): Entretien
+    {
+        return Entretien::whereKey($id)->lockForUpdate()->firstOrFail();
+    }
+
+    private function verifierPasDejaEnCours(Entretien $entretien): void
+    {
+        $dejaEnCours = Entretien::where('vehicule_id', $entretien->vehicule_id)
+            ->where('statut', StatutEntretien::EnCours->value)
+            ->where('id', '!=', $entretien->id)
+            ->exists();
+
+        if ($dejaEnCours) {
+            throw new BusinessException(
+                'Ce vehicule a deja un entretien EN_COURS.',
+                409,
+                'ENTRETIEN_DEJA_EN_COURS'
+            );
+        }
+    }
+
+    /** Snapshot BRUT (avant cast Eloquent) des champs modifiés par les transitions. */
+    private function snapshot(Entretien $entretien): array
+    {
+        return array_intersect_key(
+            $entretien->getAttributes(),
+            array_flip([
+                'statut', 'date_debut', 'date_fin', 'kilometrage', 'cout',
+                'date_prochaine_echeance', 'km_prochaine_echeance',
+                'started_by', 'finished_by', 'cancelled_by', 'cancelled_at',
+            ])
+        );
+    }
+
+    /**
+     * Ferme les alertes d'un entretien qui quitte PLANIFIE (démarrage, annulation,
+     * archivage). Une alerte résolue n'est jamais réouverte ensuite.
+     */
+    private function resoudreAlertesPlanifiees(Entretien $entretien): void
+    {
+        Alerte::where('entretien_id', $entretien->id)
+            ->whereNull('resolue_at')
+            ->update(['resolue_at' => now()]);
+    }
+
+    /**
+     * Ferme les alertes d'échéance d'un véhicule/catégorie, en épargnant celles
+     * qui appartiennent encore à un entretien PLANIFIE (alerte "date approche").
+     */
+    private function resoudreAlertesEcheance(Entretien $entretien, ?string $categorie = null): void
+    {
+        Alerte::where('vehicule_id', $entretien->vehicule_id)
+            ->when($categorie !== null, fn ($q) => $q->where('categorie', $categorie))
+            ->whereNull('resolue_at')
+            ->whereNotIn('entretien_id', function ($sub) use ($entretien) {
+                $sub->select('id')->from('entretiens')
+                    ->where('statut', StatutEntretien::Planifie->value)
+                    ->where('id', '!=', $entretien->id);
+            })
+            ->update(['resolue_at' => now()]);
+    }
 
     /** Chauffeur : uniquement son vehicule. Retourne l'id de vehicule a filtrer. */
     private function limiterAuVehicule(AuthUser $user, ?int $vehiculeId): ?int
@@ -291,18 +519,4 @@ class EntretienController extends Controller
         }
     }
 
-    /** @return array{0: ?Carbon, 1: ?int} */
-    private function calculerEcheance(Entretien $entretien, Carbon $dateFin, ?int $km): array
-    {
-        if ($entretien->type !== TypeEntretien::PREVENTIF) {
-            return [null, null];
-        }
-
-        $regle = config('entretien.types.PREVENTIF.' . $entretien->categorie, []);
-
-        $date  = isset($regle['mois']) ? $dateFin->copy()->addMonths((int) $regle['mois']) : null;
-        $kmEch = (isset($regle['km']) && $km !== null) ? $km + (int) $regle['km'] : null;
-
-        return [$date, $kmEch];
-    }
 }

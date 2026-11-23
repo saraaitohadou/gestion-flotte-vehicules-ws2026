@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { api } from "../api.js";
+import { api, ARCHIVES } from "../api.js";
 import { useAuth } from "../components/AuthContext.jsx";
 import { StatusBadge, TypeBadge } from "../components/Badges.jsx";
 import { ROLES } from "../roles.js";
@@ -17,13 +17,21 @@ export default function EntretiensList() {
   const statut = params.get("statut") ?? "";
   const type = params.get("type") ?? "";
   const vehicule = params.get("vehicule_id") ?? "";
+  const archivesParam = params.get("archives");
+  const archives = Object.values(ARCHIVES).includes(archivesParam) ? archivesParam : ARCHIVES.MASQUER;
   const page = Number(params.get("page") ?? 1);
 
   const charger = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const res = await api.list({ statut, type, vehicule_id: vehicule, page });
+      const res = await api.list({
+        statut,
+        type,
+        vehicule_id: vehicule,
+        archives: archives === ARCHIVES.MASQUER ? "" : archives,
+        page,
+      });
       setRows(res.data ?? []);
       setMeta(res.meta ?? null);
     } catch (e) {
@@ -31,7 +39,7 @@ export default function EntretiensList() {
     } finally {
       setLoading(false);
     }
-  }, [statut, type, vehicule, page]);
+  }, [statut, type, vehicule, archives, page]);
 
   useEffect(() => { charger(); }, [charger]);
 
@@ -77,7 +85,18 @@ export default function EntretiensList() {
           <span>Vehicule (id)</span>
           <input type="number" min="1" value={vehicule} onChange={(e) => setFiltre("vehicule_id", e.target.value)} />
         </label>
-        {(statut || type || vehicule) && (
+        <label className="field" style={{ margin: 0 }}>
+          <span>Archives</span>
+          <select
+            value={archives}
+            onChange={(e) => setFiltre("archives", e.target.value === ARCHIVES.MASQUER ? "" : e.target.value)}
+          >
+            <option value={ARCHIVES.MASQUER}>Masquer</option>
+            <option value={ARCHIVES.INCLURE}>Inclure</option>
+            <option value={ARCHIVES.SEULEMENT}>Seulement</option>
+          </select>
+        </label>
+        {(statut || type || vehicule || archives !== ARCHIVES.MASQUER) && (
           <button className="btn" onClick={() => setParams({})}>Reinitialiser</button>
         )}
       </div>

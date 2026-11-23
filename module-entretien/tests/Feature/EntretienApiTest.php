@@ -74,6 +74,47 @@ class EntretienApiTest extends TestCase
         $this->assertDatabaseCount('entretiens', 1);
     }
 
+    /** Diagramme de séquence : GET Véhicule 404 => aucun INSERT local. */
+    public function test_creation_vehicule_inexistant_renvoie_404(): void
+    {
+        Http::fake([
+            '*/api/vehicules/999' => Http::response(['message' => 'not found'], 404),
+        ]);
+
+        $this->postJson(
+            '/api/entretiens',
+            $this->payload(['vehicule_id' => 999]),
+            $this->auth(AuthUser::GESTIONNAIRE)
+        )
+            ->assertStatus(404)
+            ->assertJsonPath('error.code', 'VEHICULE_INTROUVABLE')
+            ->assertJsonPath('error.message', 'Vehicule #999 introuvable.');
+
+        $this->assertDatabaseCount('entretiens', 0);
+        $this->assertDatabaseCount('integrations_outbox', 0);
+    }
+
+    /**
+     * D2/D3 : la planification vérifie la disponibilité (GET Véhicule) mais ne modifie
+     * PAS le statut du véhicule. EN_MAINTENANCE n'est atteint qu'au démarrage (§4.2/§4.4).
+     */
+    public function test_planifier_un_entretien_ne_change_pas_le_statut_du_vehicule(): void
+    {
+        $this->fakeVehicule();
+
+        $this->postJson('/api/entretiens', $this->payload(), $this->auth(AuthUser::GESTIONNAIRE))
+            ->assertStatus(201)
+            ->assertJsonPath('data.statut', 'PLANIFIE');
+
+        Http::assertSent(fn (Request $r) => $r->method() === 'GET'
+            && str_ends_with($r->url(), '/api/vehicules/1'));
+        Http::assertNotSent(fn (Request $r) => $r->method() === 'PATCH');
+        $this->assertDatabaseCount('integrations_outbox', 0);
+        $this->assertDatabaseHas('entretiens', [
+            'vehicule_id' => 1,
+            'statut'      => StatutEntretien::Planifie->value,
+        ]);
+    }
 
     public function test_kilometrage_inferieur_au_vehicule_est_refuse(): void
     {
@@ -100,6 +141,26 @@ class EntretienApiTest extends TestCase
             ->assertStatus(422)->assertJsonPath('error.code', 'VEHICULE_INACTIF');
     }
 
+    public function test_vehicule_en_mission_est_refuse_des_la_creation(): void
+    {
+        $this->fakeVehicule(statut: 'EN_MISSION');
+
+        $this->postJson('/api/entretiens', $this->payload(), $this->auth(AuthUser::GESTIONNAIRE))
+            ->assertStatus(422)
+            ->assertJsonPath('error.code', 'VEHICULE_EN_MISSION');
+
+        $this->assertDatabaseCount('entretiens', 0);
+    }
+
+    public function test_contrainte_base_refuse_deux_entretiens_en_cours_pour_un_meme_vehicule(): void
+    {
+        $this->entretien(['statut' => StatutEntretien::EnCours]);
+
+        $this->expectException(\Illuminate\Database\QueryException::class);
+
+        $this->entretien(['statut' => StatutEntretien::EnCours]);
+    }
+
     public function test_demarrer_passe_le_vehicule_en_maintenance(): void
     {
         $this->fakeVehicule();
@@ -111,6 +172,52 @@ class EntretienApiTest extends TestCase
         Http::assertSent(fn (Request $r) => $r->method() === 'PATCH'
             && str_ends_with($r->url(), '/api/vehicules/1/statut')
             && $r['statut'] === 'EN_MAINTENANCE');
+    }
+
+    /** Règle §4.4 : on ne peut démarrer que depuis DISPONIBLE (non-régression). */
+    public function test_demarrer_sur_vehicule_disponible_est_autorise(): void
+    {
+        $this->fakeVehicule();
+        $e = $this->entretien();
+
+        $this->patchJson("/api/entretiens/{$e->id}/demarrer", [], $this->auth(AuthUser::GESTIONNAIRE))
+            ->assertOk()->assertJsonPath('data.statut', 'EN_COURS');
+
+        $this->assertSame(StatutEntretien::EnCours, $e->fresh()->statut);
+        Http::assertSent(fn (Request $r) => $r->method() === 'PATCH'
+            && str_ends_with($r->url(), '/api/vehicules/1/statut')
+            && $r['statut'] === 'EN_MAINTENANCE');
+    }
+
+    public function test_demarrer_refuse_un_vehicule_en_maintenance(): void
+    {
+        $this->assertDemarrerRefuse('EN_MAINTENANCE');
+    }
+
+    public function test_demarrer_refuse_un_vehicule_en_mission(): void
+    {
+        $this->assertDemarrerRefuse('EN_MISSION');
+    }
+
+    public function test_demarrer_refuse_un_vehicule_hors_service(): void
+    {
+        $this->assertDemarrerRefuse('HORS_SERVICE');
+    }
+
+    /** Aucun refus n'écrit localement, ne crée d'outbox ni n'envoie de PATCH. */
+    private function assertDemarrerRefuse(string $statut): void
+    {
+        $this->fakeVehicule(statut: $statut);
+        $e = $this->entretien();
+
+        $this->patchJson("/api/entretiens/{$e->id}/demarrer", [], $this->auth(AuthUser::GESTIONNAIRE))
+            ->assertStatus(409)
+            ->assertJsonPath('error.code', 'VEHICULE_NON_DISPONIBLE')
+            ->assertJsonPath('error.details.statut_vehicule', $statut);
+
+        $this->assertSame(StatutEntretien::Planifie, $e->fresh()->statut);
+        $this->assertDatabaseCount('integrations_outbox', 0);
+        Http::assertNotSent(fn (Request $r) => $r->method() === 'PATCH');
     }
 
     public function test_deux_entretiens_en_cours_sur_le_meme_vehicule_sont_interdits(): void

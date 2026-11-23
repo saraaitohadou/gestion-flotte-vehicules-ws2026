@@ -3,6 +3,13 @@ import { clearToken, getToken } from "./auth.js";
 
 const BASE = import.meta.env.VITE_ENTRETIEN_URL ?? "/api";
 
+// Filtre d'archivage de GET /entretiens (valeurs attendues par le backend).
+export const ARCHIVES = Object.freeze({
+  MASQUER: "exclure",
+  INCLURE: "inclure",
+  SEULEMENT: "seulement",
+});
+
 export class ApiError extends Error {
   constructor(message, status, { code, fields, data } = {}) {
     super(message);
@@ -75,9 +82,14 @@ export const api = {
 
   // Vehicules
   vehicules: () => call("/vehicules"),
+  chauffeurs: () => call("/chauffeurs"),
 
-  // Entretiens
-  list: (params = {}) => call("/entretiens", { params }),
+  // Entretiens (l'ancien parametre inclure_archives n'est plus envoye : archives fait foi)
+  list: (params = {}) => call("/entretiens", {
+    params: Object.fromEntries(
+      Object.entries(params).filter(([k, v]) => k !== "inclure_archives" && v !== "" && v != null)
+    ),
+  }),
   get: (id) => call(`/entretiens/${id}`),
   create: (data) => call("/entretiens", { method: "POST", body: data }),
   update: (id, data) => call(`/entretiens/${id}`, { method: "PUT", body: data }),
