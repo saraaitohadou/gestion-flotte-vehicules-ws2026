@@ -1,5 +1,6 @@
 """Appels HTTP vers les services Vehicule et Chauffeur."""
 import os
+from typing import Optional
 
 import httpx
 from fastapi import HTTPException
@@ -38,3 +39,22 @@ def verifier_vehicule(vehicule_id: int) -> None:
 
 def verifier_chauffeur(chauffeur_id: int) -> None:
     _verifier(CHAUFFEUR_URL, CHEMIN_CHAUFFEUR, chauffeur_id, "Chauffeur")
+
+
+def obtenir_vehicule_affecte(chauffeur_id: int) -> Optional[int]:
+    """Retourne vehicule_id affecte au chauffeur via le service Chauffeur."""
+    url = CHAUFFEUR_URL + CHEMIN_CHAUFFEUR.format(id=chauffeur_id)
+    try:
+        reponse = httpx.get(url, headers=_en_tetes(), timeout=TIMEOUT)
+    except httpx.HTTPError:
+        raise HTTPException(503, "Service Chauffeur indisponible")
+    if reponse.status_code == 404:
+        raise HTTPException(404, f"Chauffeur {chauffeur_id} introuvable")
+    if reponse.status_code >= 400:
+        raise HTTPException(503, f"Service Chauffeur a repondu {reponse.status_code}")
+    try:
+        payload = reponse.json()
+        vehicule_id = payload.get("vehicule_id")
+        return int(vehicule_id) if vehicule_id is not None else None
+    except (TypeError, ValueError):
+        raise HTTPException(503, "Reponse du service Chauffeur invalide")

@@ -1,4 +1,6 @@
 import pytest
+import time
+import os
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -6,6 +8,7 @@ from sqlalchemy.pool import StaticPool
 
 from database import Base, get_db
 from main import app
+import auth
 
 
 @pytest.fixture()
@@ -26,14 +29,19 @@ def client():
             db.close()
 
     app.dependency_overrides[get_db] = override
-    yield TestClient(app)
+    test_client = TestClient(app)
+    test_client.headers.update({"Authorization": f"Bearer {auth.issue_token_admin()}"})
+    yield test_client
     app.dependency_overrides.clear()
     engine.dispose()
 
 
 def preparer(services):
     """Declare un vehicule et un chauffeur connus des (faux) services."""
-    return services.nouveau_vehicule(), services.nouveau_chauffeur()
+    vid = services.nouveau_vehicule()
+    cid = services.nouveau_chauffeur()
+    services.affectations[cid] = vid
+    return vid, cid
 
 
 def plein(vid, cid, jour, litres, km, prix=11.5, **extra):
@@ -217,3 +225,169 @@ def test_interface_web_servie(client):
     assert "Carburant" in r.text
     assert client.get("/ui/app.js").status_code == 200
     assert client.get("/ui/style.css").status_code == 200
+
+
+def token_chauffeur(chauffeur_id):
+    now = int(time.time())
+    payload = {"sub": str(chauffeur_id), "role": "CHAUFFEUR", "id_chauffeur": chauffeur_id, "exp": now + 3600}
+    import base64, hashlib, hmac, json
+    b64 = lambda value: base64.urlsafe_b64encode(value).rstrip(b"=").decode()
+    head = b64(json.dumps({"typ": "JWT", "alg": "HS256"}).encode())
+    body = b64(json.dumps(payload).encode())
+    secret = os.environ["JWT_SECRET"].encode()
+    sig = b64(hmac.new(secret, f"{head}.{body}".encode(), hashlib.sha256).digest())
+    return f"{head}.{body}.{sig}"
+
+
+def test_401_sans_jeton(client):
+    client.headers.pop("Authorization", None)
+    assert client.get("/carburants").status_code == 401
+
+
+def test_chauffeur_ne_voit_que_ses_pleins(client, services):
+    vid, cid1 = preparer(services)
+    cid2 = services.nouveau_chauffeur()
+    services.affectations[cid2] = vid
+    client.post("/carburants", json=plein(vid, cid1, "2026-10-01", 40, 10000))
+    client.post("/carburants", json=plein(vid, cid2, "2026-10-08", 42, 10600))
+    client.headers["Authorization"] = f"Bearer {token_chauffeur(cid1)}"
+    r = client.get("/carburants", params={"chauffeur_id": cid2})
+    assert r.status_code == 200
+    assert len(r.json()) == 1
+    assert all(p["chauffeur_id"] == cid1 for p in r.json())
+
+
+def test_chauffeur_recevoirait_403_sur_mutations(client, services):
+    vid, cid = preparer(services)
+    pid = client.post("/carburants", json=plein(vid, cid, "2026-10-01", 40, 10000)).json()["id"]
+    client.headers["Authorization"] = f"Bearer {token_chauffeur(cid)}"
+    assert client.post("/carburants", json=plein(vid, cid, "2026-10-08", 42, 10600)).status_code == 403
+    assert client.patch(f"/carburants/{pid}", json={"quantite_litres": 50}).status_code == 403
+    assert client.delete(f"/carburants/{pid}").status_code == 403
+
+
+def test_cle_service_accepte_post(client, services):
+    vid, cid = preparer(services)
+    client.headers.pop("Authorization", None)
+    r = client.post(
+        "/carburants",
+        json=plein(vid, cid, "2026-10-01", 40, 10000),
+        headers={"X-Service-Key": "cle-service-tests"},
+    )
+    assert r.status_code == 201
+
+
+def test_administrateur_voit_tout(client, services):
+    vid, cid1 = preparer(services)
+    cid2 = services.nouveau_chauffeur()
+    services.affectations[cid2] = vid
+    client.post("/carburants", json=plein(vid, cid1, "2026-10-01", 40, 10000))
+    client.post("/carburants", json=plein(vid, cid2, "2026-10-08", 42, 10600))
+    r = client.get("/carburants")
+    assert r.status_code == 200
+    assert len(r.json()) == 2
+
+
+def test_affectation_couple_coherent_accepte(client, services):
+    vid, cid = preparer(services)
+    r = client.post("/carburants", json=plein(vid, cid, "2026-10-01", 40, 10000))
+    assert r.status_code == 201
+
+
+def test_affectation_couple_incoherent_refuse(client, services):
+    vid, cid = preparer(services)
+    autre_vehicule = services.nouveau_vehicule()
+    r = client.post("/carburants", json=plein(autre_vehicule, cid, "2026-10-01", 40, 10000))
+    assert r.status_code == 400
+    assert r.json()["detail"] == "Ce chauffeur n'est pas affecté à ce véhicule"
+
+
+def test_affectation_chauffeur_sans_vehicule_refuse(client, services):
+    vid = services.nouveau_vehicule()
+    cid = services.nouveau_chauffeur()
+    r = client.post("/carburants", json=plein(vid, cid, "2026-10-01", 40, 10000))
+    assert r.status_code == 400
+    assert r.json()["detail"] == "Ce chauffeur n'est pas affecté à ce véhicule"
+
+
+def test_cle_service_applique_aussi_affectation(client, services):
+    vid, cid = preparer(services)
+    autre_vehicule = services.nouveau_vehicule()
+    client.headers.pop("Authorization", None)
+    r = client.post(
+        "/carburants",
+        json=plein(autre_vehicule, cid, "2026-10-01", 40, 10000),
+        headers={"X-API-Key": "cle-service-tests"},
+    )
+    assert r.status_code == 400
+    assert r.json()["detail"] == "Ce chauffeur n'est pas affecté à ce véhicule"
+
+
+def test_patch_verifie_aussi_affectation(client, services):
+    vid, cid = preparer(services)
+    autre_vehicule = services.nouveau_vehicule()
+    pid = client.post("/carburants", json=plein(vid, cid, "2026-10-01", 40, 10000)).json()["id"]
+    r = client.patch(f"/carburants/{pid}", json={"vehicule_id": autre_vehicule})
+    assert r.status_code == 400
+    assert r.json()["detail"] == "Ce chauffeur n'est pas affecté à ce véhicule"
+
+
+def test_kilometrage_meme_jour_egal_refuse(client, services):
+    vid, cid = preparer(services)
+    assert client.post("/carburants", json=plein(vid, cid, "2026-10-01", 40, 10000)).status_code == 201
+    r = client.post("/carburants", json=plein(vid, cid, "2026-10-01", 40, 10000))
+    assert r.status_code == 400
+
+
+def test_kilometrage_meme_jour_inferieur_refuse(client, services):
+    vid, cid = preparer(services)
+    assert client.post("/carburants", json=plein(vid, cid, "2026-10-01", 40, 10100)).status_code == 201
+    r = client.post("/carburants", json=plein(vid, cid, "2026-10-01", 40, 10050))
+    assert r.status_code == 400
+
+
+def test_kilometrage_meme_jour_superieur_accepte(client, services):
+    vid, cid = preparer(services)
+    assert client.post("/carburants", json=plein(vid, cid, "2026-10-01", 40, 10100)).status_code == 201
+    r = client.post("/carburants", json=plein(vid, cid, "2026-10-01", 40, 10200))
+    assert r.status_code == 201
+
+
+def test_chauffeur_detail_autre_chauffeur_404(client, services):
+    vid, cid1 = preparer(services)
+    cid2 = services.nouveau_chauffeur()
+    services.affectations[cid2] = vid
+    pid1 = client.post("/carburants", json=plein(vid, cid1, "2026-10-01", 40, 10000)).json()["id"]
+    pid2 = client.post("/carburants", json=plein(vid, cid2, "2026-10-08", 42, 10600)).json()["id"]
+    client.headers["Authorization"] = f"Bearer {token_chauffeur(cid1)}"
+    assert client.get(f"/carburants/{pid2}").status_code == 404
+    assert client.get(f"/carburants/{pid1}").status_code == 200
+
+
+def test_chauffeur_anomalies_stats_sont_isoles(client, services):
+    vid1, cid1 = preparer(services)
+    vid2 = services.nouveau_vehicule()
+    cid2 = services.nouveau_chauffeur()
+    services.affectations[cid2] = vid2
+    client.post("/carburants", json=plein(vid1, cid1, "2026-10-01", 40, 10000))
+    client.post("/carburants", json=plein(vid2, cid2, "2026-10-01", 84, 10000))
+    client.headers["Authorization"] = f"Bearer {token_chauffeur(cid1)}"
+    assert client.get("/carburants/anomalies").json() == []
+    stats = client.get(f"/carburants/stats/vehicules/{vid1}")
+    assert stats.status_code == 200
+    assert stats.json()["nombre_pleins"] == 1
+    assert client.get(f"/carburants/stats/vehicules/{vid2}").json()["nombre_pleins"] == 0
+
+
+def test_role_inconnu_refuse(client):
+    now = int(time.time())
+    payload = {"sub": "inconnu", "role": "INCONNU", "exp": now + 3600}
+    import base64, hashlib, hmac, json
+    b64 = lambda value: base64.urlsafe_b64encode(value).rstrip(b"=").decode()
+    head = b64(json.dumps({"typ": "JWT", "alg": "HS256"}).encode())
+    body = b64(json.dumps(payload).encode())
+    secret = os.environ["JWT_SECRET"].encode()
+    sig = b64(hmac.new(secret, f"{head}.{body}".encode(), hashlib.sha256).digest())
+    token = f"{head}.{body}.{sig}"
+    client.headers["Authorization"] = f"Bearer {token}"
+    assert client.get("/carburants").status_code == 403
