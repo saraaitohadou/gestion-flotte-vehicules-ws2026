@@ -79,13 +79,16 @@ paths:
       description: >-
         Roles: ADMINISTRATEUR, GESTIONNAIRE, CHAUFFEUR. Un CHAUFFEUR est limite
         a son propre vehicule. Un token sans role connu est refuse.
+        Le filtre archives vaut exclure par defaut ; inclure ajoute les entretiens
+        archives et seulement ne renvoie qu'eux (badge "Archive" dans la reponse).
       operationId: listerEntretiens
       parameters:
         - { name: vehicule_id, in: query, schema: { type: integer } }
         - { name: statut, in: query, schema: { $ref: '#/components/schemas/Statut' } }
         - { name: type, in: query, schema: { $ref: '#/components/schemas/Type' } }
         - { name: categorie, in: query, schema: { type: string } }
-        - { name: inclure_archives, in: query, schema: { type: boolean, default: false } }
+        - { name: archives, in: query, description: "exclure (defaut), inclure, seulement", schema: { type: string, enum: [exclure, inclure, seulement], default: exclure } }
+        - { name: inclure_archives, in: query, deprecated: true, description: "Compatibilite : 1 equivaut a archives=inclure", schema: { type: boolean, default: false } }
         - { name: per_page, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 15 } }
       responses:
         '200':
@@ -303,8 +306,11 @@ paths:
       tags: [Alertes]
       summary: Alertes de maintenance non resolues par defaut
       description: >-
-        Roles: ADMINISTRATEUR, GESTIONNAIRE. PROCHE et EN_RETARD ne peuvent pas
-        etre ouvertes simultanement pour un meme entretien.
+        Roles: ADMINISTRATEUR, GESTIONNAIRE (les CHAUFFEURS sont limites a leur
+        vehicule). PROCHE et EN_RETARD ne peuvent pas etre ouvertes simultanement
+        pour un meme entretien. Le CRON quotidien genere aussi des alertes pour
+        les entretiens PLANIFIES dont la date approche ou est depassee ; leur
+        echeance_date est la date_entretien.
       operationId: listerAlertes
       parameters:
         - { name: vehicule_id, in: query, schema: { type: integer } }
@@ -739,6 +745,7 @@ components:
         message: { type: string }
         echeance_date: { type: string, format: date, nullable: true }
         echeance_km: { type: integer, nullable: true }
+        resolue: { type: boolean }
         resolue_at: { type: string, format: date-time, nullable: true }
     ListeAlertes:
       type: object

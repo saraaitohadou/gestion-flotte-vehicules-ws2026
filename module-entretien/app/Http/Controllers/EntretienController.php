@@ -36,10 +36,21 @@ class EntretienController extends Controller
     {
         $user       = AuthUser::fromRequest($request);
         $vehiculeId = $this->limiterAuVehicule($user, $request->integer('vehicule_id') ?: null);
+        $archives   = $request->query('archives');
+
+        // Compatibilité : l'ancien drapeau inclure_archives=1 équivaut à archives=inclure.
+        if ($archives === null || $archives === '') {
+            $archives = $request->boolean('inclure_archives') ? 'inclure' : 'exclure';
+        }
+        if (is_string($archives)) {
+            $archives = strtolower($archives);
+        }
+        validator(['archives' => $archives], ['archives' => 'in:exclure,inclure,seulement'])->validate();
 
         $query = Entretien::query()
             ->orderByDesc('date_entretien')->orderByDesc('id')
-            ->when(! $request->boolean('inclure_archives'), fn ($q) => $q->whereNull('archive_at'))
+            ->when($archives === 'exclure', fn ($q) => $q->whereNull('archive_at'))
+            ->when($archives === 'seulement', fn ($q) => $q->whereNotNull('archive_at'))
             ->when($vehiculeId, fn ($q) => $q->where('vehicule_id', $vehiculeId))
             ->when($request->filled('statut'), fn ($q) => $q->where('statut', strtoupper((string) $request->input('statut'))))
             ->when($request->filled('type'), fn ($q) => $q->where('type', strtoupper((string) $request->input('type'))))
@@ -128,10 +139,7 @@ class EntretienController extends Controller
             $donnees['km_prochaine_echeance']   = $kmEcheance;
 
             // L'ancienne échéance n'est plus d'actualité : on clôt ses alertes ouvertes.
-            Alerte::where('vehicule_id', $entretien->vehicule_id)
-                ->where('categorie', $ancienneCategorie)
-                ->whereNull('resolue_at')
-                ->update(['resolue_at' => now()]);
+            $this->resoudreAlertesEcheance($entretien, $ancienneCategorie);
         }
 
         $entretien->update($donnees);
@@ -176,6 +184,7 @@ class EntretienController extends Controller
             ]);
 
             $this->tracer($e, StatutEntretien::Planifie, StatutEntretien::EnCours, $user);
+            $this->resoudreAlertesPlanifiees($e);
             $entretien = $e;
 
             return $this->synchronisation->planifier(
@@ -238,11 +247,9 @@ class EntretienController extends Controller
                 'finished_by'             => $user->id,
             ]);
 
-            // L'échéance est refaite : les anciennes alertes de ce véhicule/catégorie sont résolues.
-            Alerte::where('vehicule_id', $e->vehicule_id)
-                ->where('categorie', $e->categorie)
-                ->whereNull('resolue_at')
-                ->update(['resolue_at' => now()]);
+            // L'échéance est refaite : les anciennes alertes de ce véhicule/catégorie sont résolues,
+            // mais jamais l'alerte PLANIFIE d'un autre entretien (voir resoudreAlertesEcheance()).
+            $this->resoudreAlertesEcheance($e, $e->categorie);
 
             $this->tracer($e, StatutEntretien::EnCours, StatutEntretien::Termine, $user);
             $entretien = $e;
@@ -296,6 +303,7 @@ class EntretienController extends Controller
             ]);
 
             $this->tracer($e, $statutAvant, StatutEntretien::Annule, $user);
+            $this->resoudreAlertesPlanifiees($e);
             $entretien = $e;
 
             if ($statutAvant !== StatutEntretien::EnCours) {
@@ -340,6 +348,7 @@ class EntretienController extends Controller
             'archive_at'  => now(),
             'archived_by' => $user->id,
         ]);
+        $this->resoudreAlertesPlanifiees($entretien);
 
         return new EntretienResource($entretien);
     }
@@ -426,6 +435,34 @@ class EntretienController extends Controller
                 'started_by', 'finished_by', 'cancelled_by', 'cancelled_at',
             ])
         );
+    }
+
+    /**
+     * Ferme les alertes d'un entretien qui quitte PLANIFIE (démarrage, annulation,
+     * archivage). Une alerte résolue n'est jamais réouverte ensuite.
+     */
+    private function resoudreAlertesPlanifiees(Entretien $entretien): void
+    {
+        Alerte::where('entretien_id', $entretien->id)
+            ->whereNull('resolue_at')
+            ->update(['resolue_at' => now()]);
+    }
+
+    /**
+     * Ferme les alertes d'échéance d'un véhicule/catégorie, en épargnant celles
+     * qui appartiennent encore à un entretien PLANIFIE (alerte "date approche").
+     */
+    private function resoudreAlertesEcheance(Entretien $entretien, ?string $categorie = null): void
+    {
+        Alerte::where('vehicule_id', $entretien->vehicule_id)
+            ->when($categorie !== null, fn ($q) => $q->where('categorie', $categorie))
+            ->whereNull('resolue_at')
+            ->whereNotIn('entretien_id', function ($sub) use ($entretien) {
+                $sub->select('id')->from('entretiens')
+                    ->where('statut', StatutEntretien::Planifie->value)
+                    ->where('id', '!=', $entretien->id);
+            })
+            ->update(['resolue_at' => now()]);
     }
 
     /** Chauffeur : uniquement son vehicule. Retourne l'id de vehicule a filtrer. */

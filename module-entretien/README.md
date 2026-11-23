@@ -159,13 +159,32 @@ Seuils : `ALERTE_JOURS_AVANT` (15 jours) et `ALERTE_KM_AVANT` (500 km). Consulta
 Reserve a l'ADMIN, uniquement sur un entretien TERMINE ou ANNULE. Historique complet d'un vehicule
 (archives incluses) : `GET /api/vehicules/{id}/entretiens`.
 
+## Extensions (archives et alertes planifiees)
+
+- **Filtre d'archivage** : `GET /api/entretiens` accepte `archives=exclure` (defaut), `inclure` ou
+  `seulement`. L'ancien `inclure_archives=1` reste accepte et equivaut a `inclure` (une valeur invalide
+  de `archives` donne 422 `VALIDATION_ERREUR`). Le frontend `EntretiensList` expose le select
+  « Archives : Masquer / Inclure / Seulement », conserve la valeur dans l'URL et la remet a zero avec
+  « Reinitialiser » ; le lien STAFF « Archives » ouvre directement `/entretien/liste?archives=seulement`.
+  Le badge « Archive » deja present s'affiche desormais quand les archives sont inclues.
+- **Alertes des entretiens PLANIFIES** : en plus de la prochaine echeance des preventifs termines
+  (inchangee), le CRON quotidien traite chaque entretien PLANIFIE non archive : date depassee ->
+  `EN_RETARD`, date dans les `ALERTE_JOURS_AVANT` jours -> `PROCHE`, sinon rien. Le message est
+  « Entretien #id planifie le JJ/MM/AAAA (dans X jours / en retard de X jours) » et
+  `echeance_date = date_entretien`. Meme `updateOrCreate` que l'existant : idempotent, aucune alerte
+  resolue n'est reouverte. L'alerte est fermee quand l'entretien quitte PLANIFIE (demarrage, annulation)
+  ou est archive ; la cloture et le changement de categorie epargnent desormais l'alerte PLANIFIE d'un
+  **autre** entretien du meme vehicule. Aucun appel Vehicule supplementaire, aucune migration,
+  aucun renommage `PROCHE`/`EN_RETARD`. La page `Alertes.jsx` affiche des colonnes lisibles avec
+  badge rouge `EN_RETARD` / orange `PROCHE` et un lien vers l'entretien.
+
 ## Tests
 
 ```powershell
 docker compose run --rm --no-deps -e DB_CONNECTION=sqlite -e DB_DATABASE=:memory: entretien-app php artisan test
 ```
 
-Attendu : **119 tests, 347 assertions** (suite exécutée via l'image Docker reconstruite, SQLite en mémoire). Les tests
+Attendu : **132 tests, 381 assertions** (suite exécutée via l'image Docker reconstruite, SQLite en mémoire). Les tests
 simulent les services externes (`Http::fake`) et couvrent notamment :
 - la saga/outbox : rejou idempotent par opération, 409 « même état », limite de tentatives/dead-letter,
   compensation avec compare-and-swap (`SynchronisationVehiculeTest`) ;
@@ -173,6 +192,9 @@ simulent les services externes (`Http::fake`) et couvrent notamment :
   index unique (`DeclarationPanneTraitementTest`) ;
 - la cohérence des alertes : non-réouverture, exclusivité `PROCHE`/`EN_RETARD`, changement de catégorie
   (`AlertesNonReouvertesTest`) ;
+- les extensions : filtres `archives` (exclure/inclure/seulement + compatibilité), alertes des planifiés
+  (retard/proche/idempotence/non-réouverture), fermeture aux transitions et garde-fou de `terminer()`
+  (`ArchivesEtAlertesPlanifieesTest`) ;
 - la documentation : tout code d'erreur émis par `app/` est documenté dans `openapi.yaml`
   (`OpenApiErreursDocumenteesTest`) ; création sur véhicule inexistant → 404 sans INSERT et planification
   sans changement de statut Véhicule (`EntretienApiTest`) ;
