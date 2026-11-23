@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { api } from "../api.js";
+import { api, messageErreur } from "../api.js";
 import { useToast } from "../components/Toast.jsx";
 import { CATEGORIES, TYPES } from "../utils.js";
 
@@ -21,12 +21,25 @@ export default function EntretienForm() {
   const [loading, setLoading] = useState(edition);
   const [saving, setSaving] = useState(false);
   const [vehicules, setVehicules] = useState([]);
+  const [vehiculesLoading, setVehiculesLoading] = useState(true);
+  const [vehiculesError, setVehiculesError] = useState("");
+  const [tentativeVehicules, setTentativeVehicules] = useState(0);
 
+  // Chargement explicite : aucune erreur n'est avalee, l'utilisateur peut reessayer.
   useEffect(() => {
+    let actif = true;
+    setVehiculesLoading(true);
+    setVehiculesError("");
     api.vehicules()
-      .then((r) => setVehicules(r.data ?? []))
-      .catch((e) => setGlobalError(e.message));
-  }, []);
+      .then((r) => { if (actif) setVehicules(r.data ?? []); })
+      .catch((e) => {
+        if (!actif) return;
+        setVehicules([]);
+        setVehiculesError(messageErreur(e, "charger les vehicules"));
+      })
+      .finally(() => { if (actif) setVehiculesLoading(false); });
+    return () => { actif = false; };
+  }, [tentativeVehicules]);
 
   useEffect(() => {
     if (!edition) return;
@@ -41,7 +54,7 @@ export default function EntretienForm() {
         setStatut(data.statut);
         setArchive(data.archive);
       } catch (e) {
-        setGlobalError(e.message);
+        setGlobalError(messageErreur(e, "charger l'entretien"));
       } finally {
         setLoading(false);
       }
@@ -49,6 +62,7 @@ export default function EntretienForm() {
   }, [id, edition]);
 
   const modifiable = !edition || (!archive && ["PLANIFIE", "EN_COURS"].includes(statut));
+  const pretAAjouter = modifiable && !vehiculesLoading && !vehiculesError;
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const changerType = (t) => setForm((f) => ({ ...f, type: t, categorie: CATEGORIES[t][0] }));
@@ -67,6 +81,10 @@ export default function EntretienForm() {
   const envoyer = async (ev) => {
     ev.preventDefault();
     setGlobalError("");
+    if (vehiculesError || vehiculesLoading) {
+      setGlobalError(vehiculesError || "Veuillez attendre le chargement des vehicules.");
+      return;
+    }
     const e = valider();
     setErrors(e);
     if (Object.keys(e).length) return;
@@ -84,7 +102,7 @@ export default function EntretienForm() {
       navigate(`/entretien/${res.data.id}`);
     } catch (err) {
       if (err.fields) setErrors(err.fields);
-      setGlobalError(err.code ? `${err.message} (${err.code})` : err.message);
+      setGlobalError(messageErreur(err, "enregistrer l'entretien"));
     } finally {
       setSaving(false);
     }
@@ -100,6 +118,14 @@ export default function EntretienForm() {
     </label>
   );
 
+  const libelleVehicule = vehiculesLoading
+    ? "Chargement des vehicules..."
+    : vehiculesError
+      ? "Vehicules indisponibles"
+      : vehicules.length
+        ? "-- Choisir un vehicule --"
+        : "Aucun vehicule disponible";
+
   return (
     <>
       <div className="page-head">
@@ -114,14 +140,22 @@ export default function EntretienForm() {
           Cet entretien ne peut plus etre modifie (statut {statut}{archive ? ", archive" : ""}).
         </p>
       )}
+      {vehiculesError && (
+        <p className="alert alert-bad" role="alert" data-testid="vehicules-error">
+          {vehiculesError}{" "}
+          <button type="button" className="btn btn-small" onClick={() => setTentativeVehicules((n) => n + 1)}>
+            Reessayer
+          </button>
+        </p>
+      )}
       {globalError && <p className="alert alert-bad" role="alert">{globalError}</p>}
 
       <form className="panel" onSubmit={envoyer} noValidate>
-        <fieldset disabled={!modifiable || saving} style={{ border: 0, padding: 0, margin: 0 }}>
+        <fieldset disabled={!pretAAjouter || saving} style={{ border: 0, padding: 0, margin: 0 }}>
           <div className="grid-2">
             {champ("vehicule_id", "Vehicule",
-              <select value={form.vehicule_id} onChange={(e) => set("vehicule_id", e.target.value)} disabled={edition}>
-                <option value="">-- Choisir un vehicule --</option>
+              <select value={form.vehicule_id} onChange={(e) => set("vehicule_id", e.target.value)} disabled={edition || vehiculesLoading || Boolean(vehiculesError)}>
+                <option value="">{libelleVehicule}</option>
                 {vehicules.map((v) => (
                   <option key={v.id} value={v.id}>
                     {v.immatriculation} - {v.marque} {v.modele} ({Number(v.kilometrage).toLocaleString("fr-FR")} km, {v.statut})
@@ -147,7 +181,7 @@ export default function EntretienForm() {
             <textarea rows="3" value={form.description} onChange={(e) => set("description", e.target.value)} />)}
 
           <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
-            <button className="btn btn-primary" disabled={!modifiable || saving}>
+            <button className="btn btn-primary" disabled={!pretAAjouter || saving}>
               {saving ? "Enregistrement..." : edition ? "Enregistrer" : "Creer l'entretien"}
             </button>
             <Link className="btn" to="/entretien/liste">Annuler</Link>

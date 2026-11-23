@@ -96,7 +96,7 @@ services:
       - flotte-network
 
   # ==========================================
-  # 4. MODULE ENTRETIEN (Laravel)
+  # 5. MODULE ENTRETIEN (Laravel)
   # ==========================================
   entretien-app:
     build:
@@ -123,10 +123,19 @@ services:
       SERVICE_API_KEY: ${SERVICE_API_KEY}
       VEHICULE_CHECK: "true"
       VEHICULE_SERVICE_URL: "http://vehicule-service:80"
+      VEHICULE_API_PREFIX: "/api"
       CHAUFFEUR_SERVICE_URL: "http://chauffeur-service:8000"
+      CHAUFFEUR_API_PREFIX: "/api"
+      SYNCHRONISATION_TENTATIVES_MAX: 3
     depends_on:
       db-commune:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "php -r '$$r = @file_get_contents(\"http://127.0.0.1:8004/api/health\"); exit($$r !== false && strpos($$r, \"entretien\") !== false ? 0 : 1);'"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
     networks:
       - flotte-network
 
@@ -141,6 +150,13 @@ services:
     depends_on:
       db-commune:
         condition: service_healthy
+    healthcheck:
+      # Le scheduler n'expose pas de port HTTP : on verifie son processus.
+      test: ["CMD-SHELL", "php -r 'foreach (glob(\"/proc/[0-9]*/cmdline\") as $$f) { if (strpos((string) @file_get_contents($$f), \"schedule:work\") !== false) exit(0); } exit(1);'"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     networks:
       - flotte-network
 

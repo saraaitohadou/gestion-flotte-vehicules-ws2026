@@ -1,6 +1,6 @@
 ﻿import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api } from "../api.js";
+import { api, messageErreur } from "../api.js";
 import { useAuth } from "../components/AuthContext.jsx";
 import { useToast } from "../components/Toast.jsx";
 import { ROLES } from "../roles.js";
@@ -17,18 +17,50 @@ export default function DeclarerPanne() {
   const [saving, setSaving] = useState(false);
   const [vehicules, setVehicules] = useState([]);
   const [chauffeurs, setChauffeurs] = useState([]);
+  const [erreurVehicules, setErreurVehicules] = useState("");
+  const [erreurChauffeurs, setErreurChauffeurs] = useState("");
+  const [chargementVehicules, setChargementVehicules] = useState(!estChauffeur);
+  const [chargementChauffeurs, setChargementChauffeurs] = useState(!estChauffeur);
+  const [tentative, setTentative] = useState(0);
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
-  // Listes reservees a l'admin et au gestionnaire (le chauffeur recevrait un 403)
+  // Listes reservees a l'admin et au gestionnaire (le chauffeur recevrait un 403).
+  // Chaque echec est affiche : plus de catch silencieux.
   useEffect(() => {
-    if (estChauffeur) return;
-    api.vehicules().then((r) => setVehicules(r.data ?? [])).catch((e) => setGlobalError(e.message));
-    api.chauffeurs().then((r) => setChauffeurs(r.data ?? [])).catch((e) => setGlobalError(e.message));
-  }, [estChauffeur]);
+    if (estChauffeur) {
+      setChargementVehicules(false);
+      setChargementChauffeurs(false);
+      return;
+    }
+    let actif = true;
+    setChargementVehicules(true);
+    setChargementChauffeurs(true);
+    setErreurVehicules("");
+    setErreurChauffeurs("");
+
+    api.vehicules()
+      .then((r) => { if (actif) setVehicules(r.data ?? []); })
+      .catch((e) => { if (actif) { setVehicules([]); setErreurVehicules(messageErreur(e, "charger les vehicules")); } })
+      .finally(() => { if (actif) setChargementVehicules(false); });
+
+    api.chauffeurs()
+      .then((r) => { if (actif) setChauffeurs(r.data ?? []); })
+      .catch((e) => { if (actif) { setChauffeurs([]); setErreurChauffeurs(messageErreur(e, "charger les chauffeurs")); } })
+      .finally(() => { if (actif) setChargementChauffeurs(false); });
+
+    return () => { actif = false; };
+  }, [estChauffeur, tentative]);
+
+  const pretAAjouter = estChauffeur
+    || (!chargementVehicules && !chargementChauffeurs && !erreurVehicules && !erreurChauffeurs);
 
   const envoyer = async (ev) => {
     ev.preventDefault();
     setGlobalError("");
+    if (!pretAAjouter) {
+      setGlobalError(erreurVehicules || erreurChauffeurs || "Veuillez attendre le chargement des listes.");
+      return;
+    }
     const e = {};
     if (!form.vehicule_id) e.vehicule_id = "Vehicule obligatoire.";
     if (!estChauffeur && !form.chauffeur_id) e.chauffeur_id = "Chauffeur obligatoire.";
@@ -37,20 +69,23 @@ export default function DeclarerPanne() {
     setErrors(e);
     if (Object.keys(e).length) return;
 
+    // Le chauffeur est identifie par son JWT : aucun chauffeur_id n'est envoye.
+    const corps = {
+      vehicule_id: Number(form.vehicule_id),
+      categorie: form.categorie,
+      description: form.description,
+      kilometrage: Number(form.kilometrage),
+    };
+    if (!estChauffeur) corps.chauffeur_id = Number(form.chauffeur_id);
+
     setSaving(true);
     try {
-      await api.declarer({
-        vehicule_id: Number(form.vehicule_id),
-        chauffeur_id: Number(form.chauffeur_id),
-        categorie: form.categorie,
-        description: form.description,
-        kilometrage: Number(form.kilometrage),
-      });
+      await api.declarer(corps);
       toast("Panne declaree.");
       navigate(estChauffeur ? "/pannes/mes-declarations" : "/entretien/declarations");
     } catch (err) {
       if (err.fields) setErrors(err.fields);
-      setGlobalError(err.code ? `${err.message} (${err.code})` : err.message);
+      setGlobalError(messageErreur(err, "declarer la panne"));
     } finally {
       setSaving(false);
     }
@@ -64,11 +99,27 @@ export default function DeclarerPanne() {
     </label>
   );
 
+  const libelleVehicule = chargementVehicules
+    ? "Chargement des vehicules..."
+    : erreurVehicules
+      ? "Vehicules indisponibles"
+      : vehicules.length
+        ? "-- Choisir un vehicule --"
+        : "Aucun vehicule disponible";
+
+  const libelleChauffeur = chargementChauffeurs
+    ? "Chargement des chauffeurs..."
+    : erreurChauffeurs
+      ? "Chauffeurs indisponibles"
+      : chauffeurs.length
+        ? "-- Choisir un chauffeur --"
+        : "Aucun chauffeur disponible";
+
   const champVehicule = estChauffeur
     ? champ("vehicule_id", "Vehicule (id)", <input type="number" min="1" value={form.vehicule_id} onChange={(e) => set("vehicule_id", e.target.value)} />)
     : champ("vehicule_id", "Vehicule", (
-      <select value={form.vehicule_id} onChange={(e) => set("vehicule_id", e.target.value)}>
-        <option value="">-- Choisir un vehicule --</option>
+      <select value={form.vehicule_id} onChange={(e) => set("vehicule_id", e.target.value)} disabled={chargementVehicules || Boolean(erreurVehicules)}>
+        <option value="">{libelleVehicule}</option>
         {vehicules.map((v) => (
           <option key={v.id} value={v.id}>
             {v.immatriculation} - {v.marque} {v.modele} ({Number(v.kilometrage).toLocaleString("fr-FR")} km, {v.statut})
@@ -80,8 +131,8 @@ export default function DeclarerPanne() {
   const champChauffeur = estChauffeur
     ? champ("chauffeur_id", "Chauffeur (id)", <input type="number" value={form.chauffeur_id} disabled />)
     : champ("chauffeur_id", "Chauffeur", (
-      <select value={form.chauffeur_id} onChange={(e) => set("chauffeur_id", e.target.value)}>
-        <option value="">-- Choisir un chauffeur --</option>
+      <select value={form.chauffeur_id} onChange={(e) => set("chauffeur_id", e.target.value)} disabled={chargementChauffeurs || Boolean(erreurChauffeurs)}>
+        <option value="">{libelleChauffeur}</option>
         {chauffeurs.map((c) => (
           <option key={c.id_chauffeur ?? c.id} value={c.id_chauffeur ?? c.id}>
             {c.nom} {c.prenom} ({c.cin}{c.statut ? `, ${c.statut}` : ""})
@@ -93,9 +144,21 @@ export default function DeclarerPanne() {
   return (
     <>
       <div className="page-head"><h1>Declarer une panne</h1></div>
+      {erreurVehicules && !estChauffeur && (
+        <p className="alert alert-bad" role="alert" data-testid="vehicules-error">
+          {erreurVehicules}{" "}
+          <button type="button" className="btn btn-small" onClick={() => setTentative((n) => n + 1)}>Reessayer</button>
+        </p>
+      )}
+      {erreurChauffeurs && !estChauffeur && (
+        <p className="alert alert-bad" role="alert" data-testid="chauffeurs-error">
+          {erreurChauffeurs}{" "}
+          <button type="button" className="btn btn-small" onClick={() => setTentative((n) => n + 1)}>Reessayer</button>
+        </p>
+      )}
       {globalError && <p className="alert alert-bad" role="alert">{globalError}</p>}
       <form className="panel" onSubmit={envoyer} noValidate>
-        <fieldset disabled={saving} style={{ border: 0, padding: 0, margin: 0 }}>
+        <fieldset disabled={!pretAAjouter || saving} style={{ border: 0, padding: 0, margin: 0 }}>
           <div className="grid-2">
             {champVehicule}
             {champChauffeur}
@@ -108,7 +171,7 @@ export default function DeclarerPanne() {
             {champ("kilometrage", "Kilometrage actuel", <input type="number" min="0" value={form.kilometrage} onChange={(e) => set("kilometrage", e.target.value)} />)}
           </div>
           {champ("description", "Description de la panne", <textarea rows="3" value={form.description} onChange={(e) => set("description", e.target.value)} />)}
-          <button className="btn btn-primary">{saving ? "Envoi..." : "Declarer"}</button>
+          <button className="btn btn-primary" disabled={!pretAAjouter || saving}>{saving ? "Envoi..." : "Declarer"}</button>
         </fieldset>
       </form>
     </>
