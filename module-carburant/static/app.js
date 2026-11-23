@@ -6,6 +6,30 @@
 const API = window.API_URL || "";
 const PAGE = 20; // pleins par page dans la liste
 const MOIS = ["Janv.", "Févr.", "Mars", "Avr.", "Mai", "Juin", "Juil.", "Août", "Sept.", "Oct.", "Nov.", "Déc."];
+const paramsToken = new URLSearchParams(window.location.search).get("token");
+if (paramsToken) {
+  localStorage.setItem("flotte.carburant.token", paramsToken);
+  localStorage.setItem("flotte.token", paramsToken);
+  const params = new URLSearchParams(window.location.search);
+  params.delete("token");
+  const query = params.toString();
+  window.history.replaceState({}, document.title, window.location.pathname + (query ? "?" + query : "") + window.location.hash);
+}
+const TOKEN = localStorage.getItem("flotte.carburant.token") || localStorage.getItem("flotte.token");
+if (!TOKEN) {
+  window.location.assign(window.CENTRAL_AUTH_URL || "http://localhost:5174/connexion");
+}
+let ROLE = "";
+if (TOKEN) {
+  try {
+    const payload = JSON.parse(atob(TOKEN.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+    ROLE = payload.role || "";
+  } catch {}
+}
+const EST_CHAUFFEUR = ROLE === "CHAUFFEUR";
+if (EST_CHAUFFEUR) {
+  document.querySelectorAll('[data-route="nouveau"]').forEach((element) => { element.hidden = true; });
+}
 
 const $ = (sel, racine = document) => racine.querySelector(sel);
 const vue = $("#vue");
@@ -52,9 +76,10 @@ function messageErreur(statut, data) {
 async function api(chemin, options = {}) {
   let reponse;
   try {
+    const headers = { "Content-Type": "application/json", ...(TOKEN ? { Authorization: `Bearer ${TOKEN}` } : {}) };
     reponse = await fetch(API + chemin, {
-      headers: { "Content-Type": "application/json" },
       ...options,
+      headers: { ...headers, ...(options.headers || {}) },
     });
   } catch (e) {
     throw new Error("Impossible de joindre le service Carburant.");
@@ -141,7 +166,7 @@ function enteteTriPleins() {
     const actif = triPleins.champ === champ;
     const fleche = actif ? (triPleins.ordre === "asc" ? " ▲" : " ▼") : "";
     return `<th class="sortable" scope="col" aria-sort="${actif ? (triPleins.ordre === "asc" ? "ascending" : "descending") : "none"}"><button type="button" data-tri="${esc(champ)}">${esc(libelle)}${fleche}</button></th>`;
-  }).join("") + "<th scope=\"col\">État</th><th scope=\"col\"><span class=\"muted\">Actions</span></th>";
+  }).join("") + "<th scope=\"col\">État</th>" + (EST_CHAUFFEUR ? "" : "<th scope=\"col\"><span class=\"muted\">Actions</span></th>");
 }
 
 function trierPleins(pleins) {
@@ -221,7 +246,7 @@ async function vueDashboard() {
       </div>
     </div>
     <div class="card">
-      <div class="head"><h2>Derniers pleins</h2><a class="btn small" href="#/nouveau">Nouveau plein</a></div>
+      <div class="head"><h2>Derniers pleins</h2>${EST_CHAUFFEUR ? "" : `<a class="btn small" href="#/nouveau">Nouveau plein</a>`}</div>
       ${pleins.length === 0 ? `<div class="empty">Aucun plein enregistré pour le moment.</div>` : `
       <div class="tablewrap"><table><thead><tr>${ENTETE_PLEINS}</tr></thead>
         <tbody>${pleins.slice(0, 5).map((p) => `<tr>${cellulesPlein(p)}</tr>`).join("")}</tbody></table></div>`}
@@ -245,7 +270,7 @@ async function vueListe() {
   vue.innerHTML = `
     <form class="card filters" id="form-filtres">
       <div class="f"><label for="f-veh">Véhicule</label><select id="f-veh" name="vehicule_id">${optionsIds(references.vehicules, filtres.vehicule_id, true)}</select></div>
-      <div class="f"><label for="f-cha">Chauffeur</label><select id="f-cha" name="chauffeur_id">${optionsIds(references.chauffeurs, filtres.chauffeur_id, true)}</select></div>
+      ${EST_CHAUFFEUR ? "" : `<div class="f"><label for="f-cha">Chauffeur</label><select id="f-cha" name="chauffeur_id">${optionsIds(references.chauffeurs, filtres.chauffeur_id, true)}</select></div>`}
       <div class="f"><label for="f-typ">Carburant</label><select id="f-typ" name="type_carburant">
         ${["", "diesel", "essence", "gpl"].map((t) => `<option value="${t}" ${filtres.type_carburant === t ? "selected" : ""}>${t || "Tous"}</option>`).join("")}</select></div>
       <div class="f"><label for="f-du">Du</label><input id="f-du" name="date_debut" type="date" value="${esc(filtres.date_debut)}"></div>
@@ -255,12 +280,12 @@ async function vueListe() {
     </form>
     <div class="card">
       <div class="head"><h2>${pleins.length} plein${pleins.length > 1 ? "s" : ""} affiché${pleins.length > 1 ? "s" : ""}</h2>
-        <div class="actions"><button class="btn sec small" type="button" id="export-csv">Exporter CSV</button><a class="btn small" href="#/nouveau">Nouveau plein</a></div></div>
+        <div class="actions">${EST_CHAUFFEUR ? "" : `<button class="btn sec small" type="button" id="export-csv">Exporter CSV</button><a class="btn small" href="#/nouveau">Nouveau plein</a>`}</div></div>
       ${pleins.length === 0 ? `<div class="empty">Aucun plein ne correspond à ces critères.</div>` : `
       <div class="tablewrap"><table><thead><tr>${enteteTriPleins()}</tr></thead><tbody>
-        ${pleinsTriés.map((p) => `<tr>${cellulesPlein(p)}<td><div class="actions">
+        ${pleinsTriés.map((p) => `<tr>${cellulesPlein(p)}${EST_CHAUFFEUR ? "" : `<td><div class="actions">
           <a class="btn sec small" href="#/modifier/${p.id}">Modifier</a>
-          <button class="btn danger small" type="button" data-suppr="${p.id}">Supprimer</button></div></td></tr>`).join("")}
+          <button class="btn danger small" type="button" data-suppr="${p.id}">Supprimer</button></div></td>`}</tr>`).join("")}
       </tbody></table></div>`}
       <div class="pager"><span class="muted">Page ${filtres.page + 1}</span>
         <div class="actions">
@@ -286,7 +311,7 @@ async function vueListe() {
       route();
     };
   });
-  $("#export-csv").onclick = async () => {
+  if (!EST_CHAUFFEUR) $("#export-csv").onclick = async () => {
     const bouton = $("#export-csv");
     bouton.disabled = true;
     try {
@@ -453,7 +478,7 @@ async function vueAlertes() {
         <div class="mid"><strong>Véhicule ${esc(p.vehicule_id)}</strong>
           <span class="muted">Plein du ${esc(dateFr(p.date_plein))} · ${nombre(p.quantite_litres, 1)} L · ${nombre(p.kilometrage, 0)} km${p.chauffeur_id ? " · chauffeur " + esc(p.chauffeur_id) : ""}</span>
           <span style="font-size:13px;color:var(--bad)">${esc(p.message_anomalie)}</span></div>
-        <a class="btn sec small" href="#/modifier/${p.id}">Vérifier la saisie</a>
+        ${EST_CHAUFFEUR ? "" : `<a class="btn sec small" href="#/modifier/${p.id}">Vérifier la saisie</a>`}
       </div>`).join("")}
     <p class="muted">Corriger une erreur de saisie retire automatiquement l’alerte.</p>`;
   $("#form-alertes").onsubmit = (e) => {
@@ -527,6 +552,10 @@ const TITRES = {
 
 async function route() {
   const [section, param] = (location.hash.replace(/^#\/?/, "") || "").split("/");
+  if (EST_CHAUFFEUR && (section === "nouveau" || section === "modifier")) {
+    location.hash = "#/pleins";
+    return;
+  }
   const cle = section in TITRES ? section : "";
   document.querySelectorAll(".nav").forEach((a) => {
     const actif = a.dataset.route === (cle === "modifier" ? "pleins" : cle);

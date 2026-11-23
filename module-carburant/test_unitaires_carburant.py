@@ -239,6 +239,16 @@ def test_ut_car_20_distance_nulle_sans_division_par_zero(db):
     assert all(p.consommation_l_100km is None for p in db.query(models.Carburant))
 
 
+def test_ut_car_20b_plein_partiel_inclus_dans_conso_plein_complet_suivant(db):
+    vid = nouveau_vehicule(db)
+    complet_1 = ajouter(db, vid, "2026-10-01", 40, 1000)
+    partiel = ajouter(db, vid, "2026-10-10", 20, 1300, plein_complet=False)
+    complet_2 = ajouter(db, vid, "2026-10-20", 20, 1600)
+    assert complet_1.consommation_l_100km is None
+    assert partiel.consommation_l_100km is None
+    assert complet_2.consommation_l_100km == 6.67
+
+
 # ------------------------------------------------ alerte de surconsommation
 
 def test_ut_car_21_consommation_double_signalee(db):
@@ -430,14 +440,40 @@ def test_ut_car_33_anti_doublon_15_minutes():
     ...
 
 
-@pytest.mark.skip(reason="RG-06 non developpee: pas d'authentification JWT ni de roles")
-def test_ut_car_34_droit_de_saisie_chauffeur_gestionnaire():
-    ...
+def test_ut_car_34_droit_de_saisie_chauffeur_gestionnaire(db):
+    vid = nouveau_vehicule(db)
+    cid = nouveau_chauffeur(db)
+    db.services.affectations[cid] = vid
+    chauffeur = {"role": "CHAUFFEUR", "id_chauffeur": cid}
+    with pytest.raises(HTTPException) as e:
+        svc.creer_plein(donnees(vid, "2026-10-17", 40, 10000, chauffeur_id=cid), db, chauffeur)
+    assert e.value.status_code == 403
+
+    gestionnaire = {"role": "GESTIONNAIRE", "sub": "gestionnaire-1"}
+    plein = svc.creer_plein(donnees(vid, "2026-10-18", 42, 10600, chauffeur_id=cid), db, gestionnaire)
+    assert plein.id is not None
 
 
-@pytest.mark.skip(reason="RG-07 non developpee: pas d'authentification JWT ni de roles")
-def test_ut_car_35_lecture_seule_du_chauffeur():
-    ...
+def test_ut_car_35_lecture_seule_du_chauffeur(db):
+    vid = nouveau_vehicule(db)
+    cid1 = nouveau_chauffeur(db)
+    cid2 = nouveau_chauffeur(db)
+    db.services.affectations[cid1] = vid
+    db.services.affectations[cid2] = vid
+    ajouter(db, vid, "2026-10-17", 40, 10000, chauffeur_id=cid1)
+    ajouter(db, vid, "2026-10-18", 42, 10600, chauffeur_id=cid2)
+
+    auth_chauffeur = {"role": "CHAUFFEUR", "id_chauffeur": cid1}
+    pleins = svc.lister_pleins(
+        vehicule_id=None, chauffeur_id=cid2, type_carburant=None,
+        date_debut=None, date_fin=None, skip=0, limit=50, db=db,
+        auth=auth_chauffeur,
+    )
+    assert len(pleins) == 1
+    assert all(plein.chauffeur_id == cid1 for plein in pleins)
+    with pytest.raises(HTTPException) as e:
+        svc.modifier_plein(pleins[0].id, schemas.CarburantUpdate(quantite_litres=50), db, auth_chauffeur)
+    assert e.value.status_code == 403
 
 
 def test_ut_car_41_client_http_envoie_la_cle_de_service(monkeypatch):

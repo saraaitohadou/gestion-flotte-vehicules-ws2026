@@ -11,6 +11,8 @@ import models  # noqa: F401  (enregistre les tables)
 from database import Base, engine
 from routers import carburant
 
+BASE_DIR = os.path.dirname(__file__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -33,6 +35,27 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+
+@app.middleware("http")
+async def accepte_corps_carburant_plat(request, call_next):
+    """Conserve la forme JSON plate historique tout en satisfaisant FastAPI."""
+    if request.method in ("POST", "PATCH") and request.url.path.startswith("/carburants"):
+        body = await request.body()
+        if body:
+            try:
+                import json
+                parsed = json.loads(body)
+                if isinstance(parsed, dict) and "data" not in parsed:
+                    parsed = {"data": parsed}
+                    body = json.dumps(parsed).encode()
+                    request._body = body
+                    async def receive():
+                        return {"type": "http.request", "body": body, "more_body": False}
+                    request._receive = receive
+            except Exception:
+                pass
+    return await call_next(request)
+
 app.include_router(carburant.router)
 
 
@@ -46,23 +69,25 @@ class FrontendSansCache(StaticFiles):
 
 
 # Compatibilite avec les anciennes ressources statiques.
-# Elles ne sont pas chargees par le frontend React construit ci-dessous.
+# Elles ne sont pas chargees par le frontend React construit.
 @app.get("/ui/app.js", include_in_schema=False)
 async def ancienne_ressource_app_js():
-    return FileResponse(os.path.join(os.path.dirname(__file__), "static", "app.js"))
+    return FileResponse(os.path.join(BASE_DIR, "static", "app.js"))
 
 
 @app.get("/ui/style.css", include_in_schema=False)
 async def ancienne_ressource_style_css():
-    return FileResponse(os.path.join(os.path.dirname(__file__), "static", "style.css"))
+    return FileResponse(os.path.join(BASE_DIR, "static", "style.css"))
 
 
-# Interface web (HTML/CSS/JS) servie par le service lui-meme : http://127.0.0.1:8000/ui/
-app.mount(
-    "/ui",
-    FrontendSansCache(directory=os.path.join(os.path.dirname(__file__), "frontend-dist"), html=True),
-    name="ui",
-)
+# Interface web servie par le service lui-meme : http://127.0.0.1:8000/ui/
+# On utilise l'interface React compilee (frontend-dist) si elle existe,
+# sinon l'interface HTML/JS simple (static), toujours presente dans le depot.
+DOSSIER_UI = os.path.join(BASE_DIR, "frontend-dist")
+if not os.path.isdir(DOSSIER_UI):
+    DOSSIER_UI = os.path.join(BASE_DIR, "static")
+
+app.mount("/ui", FrontendSansCache(directory=DOSSIER_UI, html=True), name="ui")
 
 
 @app.get("/", tags=["Sante"])
