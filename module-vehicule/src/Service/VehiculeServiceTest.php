@@ -240,4 +240,36 @@ class VehiculeServiceTest extends TestCase
 
         $this->assertErreur(422, fn() => $this->service->mettreAJourKilometrage(1, 'abc'));
     }
+
+    // ---------- Idempotence saga (PATCH rejoue apres reponse perdue) ----------
+
+    public function testChangerStatutVersLEtatCourantEstIdempotent(): void
+    {
+        $this->repo->method('findById')->willReturn($this->vehicule(1, StatutVehicule::EN_MAINTENANCE));
+        $this->repo->expects($this->never())->method('updateStatut');
+
+        $v = $this->service->changerStatut(1, 'EN_MAINTENANCE');
+
+        $this->assertSame(StatutVehicule::EN_MAINTENANCE, $v->statut);
+    }
+
+    public function testMettreAJourKilometrageALaMemeValeurEstIdempotent(): void
+    {
+        $this->repo->method('findById')->willReturn($this->vehicule(1, StatutVehicule::DISPONIBLE, 45200));
+        $this->repo->expects($this->never())->method('updateKilometrage');
+
+        $v = $this->service->mettreAJourKilometrage(1, 45200);
+
+        $this->assertSame(45200.0, $v->kilometrage);
+    }
+
+    public function testCompensationVersDisponibleEstIdempotente(): void
+    {
+        $this->repo->method('findById')->willReturn($this->vehicule(1, StatutVehicule::DISPONIBLE));
+        $this->repo->expects($this->never())->method('updateStatut');
+
+        $v = $this->service->changerStatut(1, 'DISPONIBLE');
+
+        $this->assertSame(StatutVehicule::DISPONIBLE, $v->statut);
+    }
 }

@@ -3,6 +3,7 @@
     <testsuites>
         <testsuite name="Service Vehicule">
             <directory>tests</directory>
+            <file>src/Service/VehiculeServiceTest.php</file>
         </testsuite>
     </testsuites>
 </phpunit>

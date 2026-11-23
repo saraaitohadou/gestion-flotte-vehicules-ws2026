@@ -6,6 +6,7 @@ require __DIR__ . '/../vendor/autoload.php';
 use App\Controller\VehiculeController;
 use App\Exceptions\ServiceException;
 use App\Auth\JwtAuth;
+use App\Idempotency\IdempotencyStore;
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -22,10 +23,34 @@ if (!is_array($body)) {
     exit;
 }
 
+// Idempotence des mutations : une clé déjà traitée rejoue sa réponse exacte.
+$cleIdempotence = (string) ($_SERVER['HTTP_IDEMPOTENCY_KEY'] ?? '');
+$stockIdempotence = null;
+
 try {
     if ($method !== 'OPTIONS') {
         JwtAuth::exiger();
     }
+
+    if ($cleIdempotence !== '' && in_array($method, ['POST', 'PUT', 'PATCH'], true)) {
+        $stockIdempotence = new IdempotencyStore();
+    }
+
+    if ($stockIdempotence !== null) {
+        $precedent = $stockIdempotence->get($cleIdempotence);
+        $routeCourante = $method . ' ' . $path;
+        if ($precedent !== null) {
+            if ($precedent['route'] !== $routeCourante) {
+                http_response_code(409);
+                echo json_encode(['erreur' => 'Idempotency-Key déjà utilisée pour une autre opération']);
+                exit;
+            }
+            http_response_code($precedent['status']);
+            echo $precedent['body'];
+            exit;
+        }
+    }
+
     $controller = new VehiculeController();
 
     if ($path === '/vehicules') {
@@ -70,7 +95,13 @@ try {
     [$status, $data] = [500, ['erreur' => 'Erreur interne du serveur']];
 }
 
-http_response_code($status);
-if ($data !== null) {
-    echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+$corps = $data !== null
+    ? json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)
+    : '';
+
+if ($stockIdempotence !== null) {
+    $stockIdempotence->put($cleIdempotence, $method . ' ' . $path, $status, (string) $corps);
 }
+
+http_response_code($status);
+echo $corps;
