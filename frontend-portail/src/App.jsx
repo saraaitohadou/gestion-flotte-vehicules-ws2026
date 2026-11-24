@@ -47,7 +47,7 @@ export default function App() {
     return localStorage.getItem('flotte.token')
   })
   const [username, setUsername] = useState('admin')
-  const [password, setPassword] = useState('adminpass')
+  const [password, setPassword] = useState('200383')
   const [erreur, setErreur] = useState('')
   const [loading, setLoading] = useState(false)
 

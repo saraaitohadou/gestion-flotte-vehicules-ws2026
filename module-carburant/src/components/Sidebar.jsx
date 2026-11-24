@@ -18,8 +18,8 @@ export default function Sidebar({ open, onClose }) {
   const handleLogout = () => {
     logout();
     onClose();
-    const authUrl = import.meta.env.VITE_AUTH_URL;
-    if (authUrl) window.location.assign(authUrl);
+    const authUrl = import.meta.env.VITE_AUTH_URL || "http://localhost:5174/connexion?logout=1";
+    window.location.assign(authUrl);
   };
 
   useEffect(() => {

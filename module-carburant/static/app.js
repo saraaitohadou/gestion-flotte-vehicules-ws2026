@@ -17,7 +17,7 @@ if (paramsToken) {
 }
 const TOKEN = localStorage.getItem("flotte.carburant.token") || localStorage.getItem("flotte.token");
 if (!TOKEN) {
-  window.location.assign(window.CENTRAL_AUTH_URL || "http://localhost:5174/connexion");
+  window.location.assign(window.CENTRAL_AUTH_URL || "http://localhost:5174/connexion?logout=1");
 }
 let ROLE = "";
 if (TOKEN) {
