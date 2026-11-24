@@ -120,6 +120,7 @@ export const api = {
   terminer: (id, data) => call(`/entretiens/${id}/terminer`, { method: "PATCH", body: data }),
   annuler: (id) => call(`/entretiens/${id}/annuler`, { method: "PATCH" }),
   historiqueVehicule: (vid) => call(`/vehicules/${vid}/entretiens`),
+  carburantVehicule: (vid) => call(`/vehicules/${vid}/carburant`),
 
   // Alertes
   alertes: (params = {}) => call("/alertes", { params }),

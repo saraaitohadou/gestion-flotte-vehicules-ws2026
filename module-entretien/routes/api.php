@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AlerteController;
+use App\Http\Controllers\CarburantController;
 use App\Http\Controllers\ChauffeurController;
 use App\Http\Controllers\DeclarationPanneController;
 use App\Http\Controllers\EntretienController;
@@ -27,6 +28,7 @@ Route::middleware('jwt')->group(function () {
         Route::get('/vehicules', [VehiculeController::class, 'index']);
         // Etat authoritative du vehicule : permet a l'UI de verifier DEMARRER / TERMINER.
         Route::get('/vehicules/{vehicule}', [VehiculeController::class, 'show']);
+        Route::get('/vehicules/{vehicule}/carburant', [CarburantController::class, 'stats']);
         Route::get('/chauffeurs', [ChauffeurController::class, 'index']);
         Route::post('/entretiens', [EntretienController::class, 'store']);
         Route::put('/entretiens/{entretien}', [EntretienController::class, 'update']);
