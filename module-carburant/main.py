@@ -38,16 +38,15 @@ app = FastAPI(
 
 @app.middleware("http")
 async def accepte_corps_carburant_plat(request, call_next):
-    """Conserve la forme JSON plate historique tout en satisfaisant FastAPI."""
+    """Accepte l'ancien format { "data": {...} } pour les clients existants."""
     if request.method in ("POST", "PATCH") and request.url.path.startswith("/carburants"):
         body = await request.body()
         if body:
             try:
                 import json
                 parsed = json.loads(body)
-                if isinstance(parsed, dict) and "data" not in parsed:
-                    parsed = {"data": parsed}
-                    body = json.dumps(parsed).encode()
+                if isinstance(parsed, dict) and set(parsed) == {"data"} and isinstance(parsed["data"], dict):
+                    body = json.dumps(parsed["data"]).encode()
                     request._body = body
                     async def receive():
                         return {"type": "http.request", "body": body, "more_body": False}

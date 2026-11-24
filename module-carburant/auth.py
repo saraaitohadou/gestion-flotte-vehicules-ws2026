@@ -5,7 +5,7 @@ import json
 import os
 import time
 
-from fastapi import HTTPException, Request, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 
@@ -79,7 +79,7 @@ def issue_token_admin(sub: str = "admin", ttl: int = 3600) -> str:
 
 def require_auth(
     request: Request,
-    creds: HTTPAuthorizationCredentials | None = None,
+    creds: HTTPAuthorizationCredentials | None = Depends(bearer),
 ) -> dict:
     cle = os.getenv("SERVICE_API_KEY", "")
     envoyee = request.headers.get("X-API-Key") or request.headers.get("X-Service-Key")
