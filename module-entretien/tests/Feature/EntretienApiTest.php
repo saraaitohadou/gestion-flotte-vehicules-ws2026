@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Enums\StatutEntretien;
 use App\Enums\TypeEntretien;
-use App\Models\Alerte;
 use App\Models\Entretien;
 use App\Support\AuthUser;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -63,11 +62,11 @@ class EntretienApiTest extends TestCase
     }
 
 
-    public function test_gestionnaire_cree_un_entretien_planifie(): void
+    public function test_admin_cree_un_entretien_planifie(): void
     {
         $this->fakeVehicule();
 
-        $this->postJson('/api/entretiens', $this->payload(), $this->auth(AuthUser::GESTIONNAIRE))
+        $this->postJson('/api/entretiens', $this->payload(), $this->auth(AuthUser::ADMIN))
             ->assertStatus(201)
             ->assertJsonPath('data.statut', 'PLANIFIE');
 
@@ -84,7 +83,7 @@ class EntretienApiTest extends TestCase
         $this->postJson(
             '/api/entretiens',
             $this->payload(['vehicule_id' => 999]),
-            $this->auth(AuthUser::GESTIONNAIRE)
+            $this->auth(AuthUser::ADMIN)
         )
             ->assertStatus(404)
             ->assertJsonPath('error.code', 'VEHICULE_INTROUVABLE')
@@ -102,7 +101,7 @@ class EntretienApiTest extends TestCase
     {
         $this->fakeVehicule();
 
-        $this->postJson('/api/entretiens', $this->payload(), $this->auth(AuthUser::GESTIONNAIRE))
+        $this->postJson('/api/entretiens', $this->payload(), $this->auth(AuthUser::ADMIN))
             ->assertStatus(201)
             ->assertJsonPath('data.statut', 'PLANIFIE');
 
@@ -120,7 +119,7 @@ class EntretienApiTest extends TestCase
     {
         $this->fakeVehicule(km: 50000);
 
-        $this->postJson('/api/entretiens', $this->payload(['kilometrage' => 40000]), $this->auth(AuthUser::GESTIONNAIRE))
+        $this->postJson('/api/entretiens', $this->payload(['kilometrage' => 40000]), $this->auth(AuthUser::ADMIN))
             ->assertStatus(422)->assertJsonPath('error.code', 'KILOMETRAGE_INVALIDE');
     }
 
@@ -128,7 +127,7 @@ class EntretienApiTest extends TestCase
     {
         $this->fakeVehicule();
 
-        $this->postJson('/api/entretiens', $this->payload(['categorie' => 'PANNE']), $this->auth(AuthUser::GESTIONNAIRE))
+        $this->postJson('/api/entretiens', $this->payload(['categorie' => 'PANNE']), $this->auth(AuthUser::ADMIN))
             ->assertStatus(422)->assertJsonPath('error.code', 'VALIDATION_ERREUR');
     }
 
@@ -136,7 +135,7 @@ class EntretienApiTest extends TestCase
     {
         $this->fakeVehicule(statut: 'HORS_SERVICE');
 
-        $this->postJson('/api/entretiens', $this->payload(), $this->auth(AuthUser::GESTIONNAIRE))
+        $this->postJson('/api/entretiens', $this->payload(), $this->auth(AuthUser::ADMIN))
             
             ->assertStatus(422)->assertJsonPath('error.code', 'VEHICULE_INACTIF');
     }
@@ -145,7 +144,7 @@ class EntretienApiTest extends TestCase
     {
         $this->fakeVehicule(statut: 'EN_MISSION');
 
-        $this->postJson('/api/entretiens', $this->payload(), $this->auth(AuthUser::GESTIONNAIRE))
+        $this->postJson('/api/entretiens', $this->payload(), $this->auth(AuthUser::ADMIN))
             ->assertStatus(422)
             ->assertJsonPath('error.code', 'VEHICULE_EN_MISSION');
 
@@ -277,29 +276,5 @@ class EntretienApiTest extends TestCase
     {
         $this->getJson('/api/entretiens/999', $this->auth(AuthUser::ADMIN))
             ->assertStatus(404)->assertJsonPath('error.code', 'RESSOURCE_INTROUVABLE');
-    }
-
-    public function test_cron_genere_les_alertes_proche_et_en_retard(): void
-    {
-        $this->entretien([
-            'vehicule_id' => 1, 'statut' => StatutEntretien::Termine, 'date_fin' => now(),
-            'date_prochaine_echeance' => now()->addDays(10)->toDateString(),
-        ]);
-        $this->entretien([
-            'vehicule_id' => 2, 'statut' => StatutEntretien::Termine, 'date_fin' => now(),
-            'date_prochaine_echeance' => now()->subDays(3)->toDateString(),
-        ]);
-        $this->entretien([ // loin dans le futur : pas d'alerte
-            'vehicule_id' => 3, 'statut' => StatutEntretien::Termine, 'date_fin' => now(),
-            'date_prochaine_echeance' => now()->addMonths(5)->toDateString(),
-        ]);
-
-        $this->artisan('entretiens:verifier-echeances')->assertSuccessful();
-
-        $this->assertSame(1, Alerte::where('type', Alerte::PROCHE)->count());
-        $this->assertSame(1, Alerte::where('type', Alerte::EN_RETARD)->count());
-
-        $this->getJson('/api/alertes?type=EN_RETARD', $this->auth(AuthUser::GESTIONNAIRE))
-            ->assertOk()->assertJsonCount(1, 'data');
     }
 }

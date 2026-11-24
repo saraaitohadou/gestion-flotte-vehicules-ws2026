@@ -101,10 +101,12 @@ export const api = {
   basculerGestionnaire: (id, actif) => call(`/gestionnaires/${id}/actif`, { method: "PATCH", body: { actif } }),
   motDePasseGestionnaire: (id, password) => call(`/gestionnaires/${id}/mot-de-passe`, { method: "PATCH", body: { password } }),
 
-  // Vehicules
-  vehicules: () => call("/vehicules"),
-  vehicule: (id) => call(`/vehicules/${id}`),
-  chauffeurs: () => call("/chauffeurs"),
+  // Vehicules / chauffeurs relayes par le module Entretien.
+  // Prefixe /api/entretien (voir docker/nginx-spa.conf) : /api/vehicules est
+  // reserve au service Vehicule dans le reverse-proxy Partage par tous les UI.
+  vehicules: () => call("/entretien/vehicules"),
+  vehicule: (id) => call(`/entretien/vehicules/${id}`),
+  chauffeurs: () => call("/entretien/chauffeurs"),
 
   // Entretiens (l'ancien parametre inclure_archives n'est plus envoye : archives fait foi)
   list: (params = {}) => call("/entretiens", {
@@ -119,11 +121,8 @@ export const api = {
   demarrer: (id) => call(`/entretiens/${id}/demarrer`, { method: "PATCH" }),
   terminer: (id, data) => call(`/entretiens/${id}/terminer`, { method: "PATCH", body: data }),
   annuler: (id) => call(`/entretiens/${id}/annuler`, { method: "PATCH" }),
-  historiqueVehicule: (vid) => call(`/vehicules/${vid}/entretiens`),
-  carburantVehicule: (vid) => call(`/vehicules/${vid}/carburant`),
-
-  // Alertes
-  alertes: (params = {}) => call("/alertes", { params }),
+  historiqueVehicule: (vid) => call(`/entretien/vehicules/${vid}/entretiens`),
+  carburantVehicule: (vid) => call(`/entretien/vehicules/${vid}/carburant`),
 
   // Declarations de panne
   declarations: (params = {}) => call("/declarations-panne", { params }),

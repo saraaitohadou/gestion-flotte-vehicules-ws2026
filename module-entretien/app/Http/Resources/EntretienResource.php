@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Models\Gestionnaire;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -10,6 +11,18 @@ class EntretienResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        // Les identifiants techniques ne doivent jamais apparaître côté UI :
+        // on résout les auteurs en noms lisibles (JWT "name" ou table gestionnaires).
+        $noms = [];
+        foreach ([$this->created_by, $this->started_by, $this->finished_by, $this->cancelled_by, $this->archived_by] as $id) {
+            if ($id === null || $id === '') {
+                continue;
+            }
+            $noms[(string) $id] ??= Gestionnaire::whereKey($id)->value('username') ?? (string) $id;
+        }
+
+        $nom = static fn ($id) => $id === null || $id === '' ? null : ($noms[(string) $id] ?? (string) $id);
+
         return [
             'id'             => $this->id,
             'vehicule_id'    => $this->vehicule_id,
@@ -31,15 +44,15 @@ class EntretienResource extends JsonResource
             'historique'     => $this->whenLoaded('historique', fn () => $this->historique->map(fn ($h) => [
                 'ancien_statut'  => $h->ancien_statut,
                 'nouveau_statut' => $h->nouveau_statut,
-                'action_par'     => $h->action_par,
+                'action_par'     => $nom($h->action_par),
                 'date'           => $h->created_at?->toIso8601String(),
             ])),
             'responsables'   => [
-                'cree_par'    => $this->created_by,
-                'demarre_par' => $this->started_by,
-                'termine_par' => $this->finished_by,
-                'annule_par'  => $this->cancelled_by,
-                'archive_par' => $this->archived_by,
+                'cree_par'    => $nom($this->created_by),
+                'demarre_par' => $nom($this->started_by),
+                'termine_par' => $nom($this->finished_by),
+                'annule_par'  => $nom($this->cancelled_by),
+                'archive_par' => $nom($this->archived_by),
             ],
             'created_at'     => $this->created_at?->toIso8601String(),
             'updated_at'     => $this->updated_at?->toIso8601String(),

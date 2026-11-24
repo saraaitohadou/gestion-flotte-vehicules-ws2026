@@ -43,7 +43,7 @@ class TypeEntretienConfigurableTest extends TestCase
         $this->postJson('/api/entretiens', $this->payload([
             'type'      => 'MAINTENANCE',
             'categorie' => 'CONTROLE',
-        ]), $this->tokenHeaders(AuthUser::GESTIONNAIRE))
+        ]), $this->tokenHeaders(AuthUser::ADMIN))
             ->assertStatus(201)
             ->assertJsonPath('data.type', 'MAINTENANCE');
 
@@ -56,7 +56,7 @@ class TypeEntretienConfigurableTest extends TestCase
         $this->fakeVehicule();
 
         $this->postJson('/api/entretiens', $this->payload(['type' => 'TYPE_INCONNU']),
-            $this->tokenHeaders(AuthUser::GESTIONNAIRE))
+            $this->tokenHeaders(AuthUser::ADMIN))
             ->assertStatus(422)
             ->assertJsonPath('error.code', 'VALIDATION_ERREUR');
     }
@@ -69,7 +69,7 @@ class TypeEntretienConfigurableTest extends TestCase
         $this->postJson('/api/entretiens', $this->payload([
             'type'      => 'MAINTENANCE',
             'categorie' => 'AUTRE_CONTROLE',
-        ]), $this->tokenHeaders(AuthUser::GESTIONNAIRE))
+        ]), $this->tokenHeaders(AuthUser::ADMIN))
             ->assertStatus(422)
             ->assertJsonPath('error.code', 'VALIDATION_ERREUR');
     }

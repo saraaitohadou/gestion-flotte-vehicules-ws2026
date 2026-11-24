@@ -64,6 +64,35 @@ def test_creation_calcule_le_montant(client, services):
     assert r.json()["montant_total"] == 460.0
 
 
+def test_creation_synchronise_le_kilometrage_vehicule(client, services):
+    vid, cid = preparer(services)
+    r = client.post("/carburants", json=plein(vid, cid, "2026-10-01", 40, 10000))
+    assert r.status_code == 201
+    assert services.synchronisations == [(vid, 10000)]
+
+
+def test_modification_pousse_le_compteur_le_plus_eleve(client, services):
+    vid, cid = preparer(services)
+    assert client.post("/carburants", json=plein(vid, cid, "2026-10-01", 40, 10000)).status_code == 201
+    plein_id = client.get("/carburants", params={"vehicule_id": vid}).json()[0]["id"]
+    assert client.post("/carburants", json=plein(vid, cid, "2026-10-02", 40, 10500)).status_code == 201
+    services.synchronisations.clear()
+
+    r = client.patch(f"/carburants/{plein_id}", json={"kilometrage": 10200})
+    assert r.status_code == 200
+    assert services.synchronisations == [(vid, 10500)]
+
+
+def test_panne_du_service_vehicule_ne_bloque_pas_le_plein(client, services, monkeypatch):
+    vid, cid = preparer(services)
+    monkeypatch.setattr(
+        "clients.synchroniser_kilometrage_vehicule", lambda vid, km: False
+    )
+    r = client.post("/carburants", json=plein(vid, cid, "2026-10-01", 40, 10000))
+    assert r.status_code == 201
+    assert client.get("/carburants", params={"vehicule_id": vid}).json() != []
+
+
 def test_references_inconnues(client, services):
     r = client.post("/carburants", json=plein(999, None, "2026-10-01", 40, 10000))
     assert r.status_code == 404

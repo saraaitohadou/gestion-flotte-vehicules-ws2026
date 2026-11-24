@@ -14,10 +14,25 @@ if (hasWindow && urlParams.get("logout") === "1") {
   storage?.removeItem(KEY);
   window.history.replaceState({}, document.title, window.location.pathname);
 }
+// Un token transmis par URL ne doit jamais ecraser une session valide d'un autre role.
+// C'etait le chemin qui transformait un gestionnaire en admin : le portail envoyait
+// son propre JWT administrateur quand on cliquait sur la carte "Maintenance".
 const urlToken = urlParams.get("token");
-if (urlToken) {
-  storage?.setItem(KEY, urlToken);
-  if (hasWindow) window.history.replaceState({}, document.title, window.location.pathname);
+if (hasWindow && urlToken) {
+  const courant = userFromToken(storage?.getItem(KEY));
+  const entrant = userFromToken(urlToken);
+  if (entrant && (!courant || courant.role === entrant.role)) {
+    storage?.setItem(KEY, urlToken);
+  }
+  // Le parametre est toujours retire de l'URL, meme quand le token est refuse.
+  const propres = new URLSearchParams(window.location.search);
+  propres.delete("token");
+  const query = propres.toString();
+  window.history.replaceState(
+    {},
+    document.title,
+    window.location.pathname + (query ? `?${query}` : "") + window.location.hash,
+  );
 }
 
 export const getToken = () => storage?.getItem(KEY) ?? null;

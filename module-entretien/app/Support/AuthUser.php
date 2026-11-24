@@ -17,6 +17,8 @@ final class AuthUser
         public readonly ?int $vehiculeId = null,
         /** Identifiant du chauffeur, issu du JWT (jamais du corps de requête). */
         public readonly ?int $chauffeurId = null,
+        /** Nom lisible du gestionnaire, issu du JWT (jamais d'une table locale). */
+        public readonly ?string $name = null,
     ) {}
 
     public static function fromRequest(Request $request): self
@@ -35,6 +37,7 @@ final class AuthUser
                 ? (int) $jwt['vehicule_id']
                 : null,
             self::extraireChauffeurId($jwt),
+            isset($jwt['name']) && $jwt['name'] !== '' ? (string) $jwt['name'] : null,
         );
     }
 

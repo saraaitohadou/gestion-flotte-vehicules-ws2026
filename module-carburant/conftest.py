@@ -20,6 +20,7 @@ class FauxServices:
         self._nv = 0
         self._nc = 0
         self.affectations = {}
+        self.synchronisations = []  # (vehicule_id, kilometrage) pousses au service Vehicule
 
     def nouveau_vehicule(self):
         self._nv += 1
@@ -48,6 +49,11 @@ class FauxServices:
         self._controle(chauffeur_id, self.chauffeurs, "Chauffeur")
         return self.affectations.get(chauffeur_id)
 
+    def synchroniser_kilometrage(self, vehicule_id, kilometrage):
+        self._controle(vehicule_id, self.vehicules, "Vehicule")
+        self.synchronisations.append((vehicule_id, kilometrage))
+        return True
+
 
 @pytest.fixture(autouse=True)
 def services(monkeypatch):
@@ -57,6 +63,7 @@ def services(monkeypatch):
     monkeypatch.setattr(clients, "verifier_vehicule", faux.verifier_vehicule)
     monkeypatch.setattr(clients, "verifier_chauffeur", faux.verifier_chauffeur)
     monkeypatch.setattr(clients, "obtenir_vehicule_affecte", faux.obtenir_vehicule_affecte)
+    monkeypatch.setattr(clients, "synchroniser_kilometrage_vehicule", faux.synchroniser_kilometrage)
     return faux
 
 

@@ -8,10 +8,23 @@ if (urlParams.get("logout") === "1") {
   localStorage.removeItem("chauffeur_role");
   window.history.replaceState({}, document.title, window.location.pathname);
 }
+// Meme regle que dans le module Entretien : un jeton recu par URL ne remplace
+// jamais une session valide appartenant a un autre role.
 const urlToken = urlParams.get("token");
 if (urlToken) {
-  localStorage.setItem(KEY, urlToken);
-  window.history.replaceState({}, document.title, window.location.pathname);
+  const courant = userFromToken(localStorage.getItem(KEY));
+  const entrant = userFromToken(urlToken);
+  if (entrant && (!courant || courant.role === entrant.role)) {
+    localStorage.setItem(KEY, urlToken);
+  }
+  const propres = new URLSearchParams(window.location.search);
+  propres.delete("token");
+  const query = propres.toString();
+  window.history.replaceState(
+    {},
+    document.title,
+    window.location.pathname + (query ? `?${query}` : "") + window.location.hash,
+  );
 }
 
 

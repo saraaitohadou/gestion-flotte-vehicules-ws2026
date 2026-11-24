@@ -136,20 +136,6 @@ class EntretienModificationTest extends TestCase
         $this->assertSame(80500, (int) $e->km_prochaine_echeance);
     }
 
-    public function test_changer_de_categorie_resout_les_alertes_de_lancienne_echeance(): void
-    {
-        Http::fake();
-        $e = $this->entretien();
-        \App\Models\Alerte::forceCreate([
-            'entretien_id' => $e->id, 'vehicule_id' => 1, 'type' => \App\Models\Alerte::PROCHE,
-            'categorie' => 'VIDANGE', 'message' => 'Ancienne alerte',
-        ]);
-
-        $this->putJson("/api/entretiens/{$e->id}", ['categorie' => 'PNEUS'], $this->auth())->assertOk();
-
-        $this->assertNotNull(\App\Models\Alerte::first()->resolue_at);
-    }
-
     public function test_le_statut_ne_peut_pas_etre_change_par_put(): void
     {
         Http::fake();

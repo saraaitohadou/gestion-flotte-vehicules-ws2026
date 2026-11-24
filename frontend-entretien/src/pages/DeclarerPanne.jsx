@@ -147,13 +147,13 @@ export default function DeclarerPanne() {
       {erreurVehicules && !estChauffeur && (
         <p className="alert alert-bad" role="alert" data-testid="vehicules-error">
           {erreurVehicules}{" "}
-          <button type="button" className="btn btn-small" onClick={() => setTentative((n) => n + 1)}>Reessayer</button>
+          <button type="button" className="btn btn-sm" onClick={() => setTentative((n) => n + 1)}>Reessayer</button>
         </p>
       )}
       {erreurChauffeurs && !estChauffeur && (
         <p className="alert alert-bad" role="alert" data-testid="chauffeurs-error">
           {erreurChauffeurs}{" "}
-          <button type="button" className="btn btn-small" onClick={() => setTentative((n) => n + 1)}>Reessayer</button>
+          <button type="button" className="btn btn-sm" onClick={() => setTentative((n) => n + 1)}>Reessayer</button>
         </p>
       )}
       {globalError && <p className="alert alert-bad" role="alert">{globalError}</p>}

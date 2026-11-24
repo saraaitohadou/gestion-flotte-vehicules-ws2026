@@ -20,14 +20,14 @@ function reponse(status, corps) {
   });
 }
 
-test("GET /api/vehicules envoie le Bearer et ramene la liste", async () => {
+test("GET /api/entretien/vehicules envoie le Bearer et ramene la liste", async () => {
   let vu;
   globalThis.fetch = async (url, options) => {
     vu = { url, options };
     return { status: 200, ok: true, json: async () => ({ data: [{ id: 2, statut: "DISPONIBLE" }] }) };
   };
   const resultat = await api.vehicules();
-  assert.equal(vu.url, "/api/vehicules");
+  assert.equal(vu.url, "/api/entretien/vehicules");
   assert.equal(vu.options.method, "GET");
   assert.equal(vu.options.headers.Authorization, "Bearer token-de-test");
   assert.deepEqual(resultat.data, [{ id: 2, statut: "DISPONIBLE" }]);
@@ -63,14 +63,14 @@ test("une panne de transport est codee SERVICE_INJOIGNABLE", async () => {
   );
 });
 
-test("le detail vehicule est relaye par GET /api/vehicules/{id}", async () => {
+test("le detail vehicule est relaye par GET /api/entretien/vehicules/{id}", async () => {
   let vu;
   globalThis.fetch = async (url) => {
     vu = url;
     return { status: 200, ok: true, json: async () => ({ data: { id: 2, statut: "EN_MAINTENANCE", kilometrage: 62500 } }) };
   };
   const r = await api.vehicule(2);
-  assert.equal(vu, "/api/vehicules/2");
+  assert.equal(vu, "/api/entretien/vehicules/2");
   assert.equal(r.data.statut, "EN_MAINTENANCE");
 });
 

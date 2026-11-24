@@ -1,0 +1,30 @@
+/* Jetons visuels partagés entre les modules React (Chauffeur, Entretien, Carburant). */
+:root {
+  --bg: #eceff3;
+  --surface: #ffffff;
+  --ink: #15233a;
+  --muted: #5d6b7e;
+  --line: #d9dfe7;
+  --primary: #0b6e8a;
+  --primary-dark: #095a72;
+  --ok: #2f7d4f;
+  --ok-bg: #e2f2e8;
+  --info: #0b6e8a;
+  --info-bg: #dcedf3;
+  --warn: #9a6200;
+  --warn-bg: #fbeccc;
+  --bad: #b3342a;
+  --bad-bg: #f9e0dd;
+  --mute: #5d6b7e;
+  --mute-bg: #e6e9ee;
+  --radius: 10px;
+  --radius-sm: 8px;
+  --brand-mark: #f2b33d;
+  --sidebar-text: #d3dcea;
+  --sidebar-text-muted: #a9b6c9;
+  --focus-ring: #5aa9c2;
+  --table-head-bg: #f7f9fb;
+  --hover-bg: #f3f6f9;
+  font-family: "Schibsted Grotesk", system-ui, sans-serif;
+  color: var(--ink);
+}

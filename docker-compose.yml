@@ -91,6 +91,7 @@ services:
       - "8002:8000"
     environment:
       <<: *auth-env
+      TOKEN_TTL_SECONDS: 43200   # 12 h, aligne sur le token gestionnaire
       DB_HOST: db-commune
       DB_PORT: 3306
       DB_NAME: ${DB_NAME:-gestion_flotte}

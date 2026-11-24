@@ -175,7 +175,7 @@ export default function EntretienForm() {
       {vehiculesError && (
         <p className="alert alert-bad" role="alert" data-testid="vehicules-error">
           {vehiculesError}{" "}
-          <button type="button" className="btn btn-small" onClick={() => setTentativeVehicules((n) => n + 1)}>
+          <button type="button" className="btn btn-sm" onClick={() => setTentativeVehicules((n) => n + 1)}>
             Reessayer
           </button>
         </p>

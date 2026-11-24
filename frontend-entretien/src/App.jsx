@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import Layout from "./components/Layout.jsx";
 import RequireAuth from "./components/RequireAuth.jsx";
@@ -6,19 +7,23 @@ import Home from "./pages/Home.jsx";
 import EntretienDetail from "./pages/EntretienDetail.jsx";
 import DeclarerPanne from "./pages/DeclarerPanne.jsx";
 import DeclarationsList from "./pages/DeclarationsList.jsx";
-import Alertes from "./pages/Alertes.jsx";
 import EntretienDashboard from "./pages/EntretienDashboard.jsx";
 import Gestionnaires from "./pages/Gestionnaires.jsx";
 import EntretiensList from "./pages/EntretiensList.jsx";
 import EntretienForm from "./pages/EntretienForm.jsx";
 import Vehicules from "./pages/Vehicules.jsx";
 import { STAFF, DECLARANTS, ROLES } from "./roles.js";
+import { clearToken } from "./auth.js";
 
 const UNIFIED_LOGIN_URL =
   import.meta.env.VITE_UNIFIED_LOGIN_URL ?? "http://localhost:5174/connexion";
 
 function RedirectToUnifiedLogin() {
-  window.location.replace(`${UNIFIED_LOGIN_URL}?logout=1`);
+  useEffect(() => {
+    // Le login unifie purge son propre stockage : il faut aussi purger celui du :5176.
+    clearToken();
+    window.location.replace(`${UNIFIED_LOGIN_URL}?logout=1`);
+  }, []);
   return null;
 }
 
@@ -34,14 +39,13 @@ export default function App() {
             <Route path="/entretien" element={<EntretienDashboard />} />
             <Route path="/entretien/liste" element={<EntretiensList />} />
             <Route path="/entretien/vehicules" element={<Vehicules />} />
-            <Route path="/entretien/nouveau" element={<EntretienForm />} />
             <Route path="/entretien/:id" element={<EntretienDetail />} />
             <Route path="/entretien/:id/modifier" element={<EntretienForm />} />
-            <Route path="/entretien/declarations" element={<DeclarationsList gestion />} />
-            <Route path="/entretien/alertes" element={<Alertes />} />
           </Route>
 
           <Route element={<RequireRole roles={[ROLES.ADMIN]} />}>
+            <Route path="/entretien/nouveau" element={<EntretienForm />} />
+            <Route path="/entretien/declarations" element={<DeclarationsList gestion />} />
             <Route path="/entretien/gestionnaires" element={<Gestionnaires />} />
           </Route>
 

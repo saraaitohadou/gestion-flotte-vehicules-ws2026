@@ -1,1 +1,13 @@
 @import "tailwindcss";
+
+/* Memes jetons que les modules React (voir src/tokens.css). */
+@theme {
+  --color-app: #eceff3;
+  --color-ink: #15233a;
+  --color-primary: #0b6e8a;
+  --color-primary-dark: #095a72;
+  --color-brand-mark: #f2b33d;
+  --color-muted: #5d6b7e;
+  --color-line: #d9dfe7;
+  --font-sans: "Schibsted Grotesk", system-ui, sans-serif;
+}

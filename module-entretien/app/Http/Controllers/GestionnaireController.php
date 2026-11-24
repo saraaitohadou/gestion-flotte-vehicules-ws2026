@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\RateLimiter;
 
 class GestionnaireController
 {
-    private const DUREE = 8 * 3600;
+    private const DUREE = 12 * 3600;
 
     /** Public : POST /api/gestionnaires/login */
     public function login(Request $request): JsonResponse

@@ -1,4 +1,5 @@
 """Appels HTTP vers les services Vehicule et Chauffeur."""
+import logging
 import os
 from typing import Optional
 
@@ -6,6 +7,8 @@ import httpx
 from fastapi import HTTPException
 
 import auth
+
+logger = logging.getLogger(__name__)
 
 VEHICULE_URL = os.getenv("VEHICULE_SERVICE_URL", "http://vehicule-service")
 CHAUFFEUR_URL = os.getenv("CHAUFFEUR_SERVICE_URL", "http://chauffeur-service:8000")
@@ -15,6 +18,7 @@ TIMEOUT = float(os.getenv("SERVICE_TIMEOUT", "3"))
 # Routes reelles des autres modules (a ajuster si l'equipe les change)
 CHEMIN_VEHICULE = "/vehicules/{id}"
 CHEMIN_VEHICULES = "/vehicules"
+CHEMIN_VEHICULE_KILOMETRAGE = "/vehicules/{id}/kilometrage"
 CHEMIN_CHAUFFEUR = "/api/chauffeurs/{id}"
 CHEMIN_CHAUFFEURS = "/api/chauffeurs"
 
@@ -40,6 +44,37 @@ def _verifier(base: str, chemin: str, ident: int, nom: str) -> None:
 
 def verifier_vehicule(vehicule_id: int) -> None:
     _verifier(VEHICULE_URL, CHEMIN_VEHICULE, vehicule_id, "Vehicule")
+
+
+def synchroniser_kilometrage_vehicule(vehicule_id: int, kilometrage: int) -> bool:
+    """Propage le compteur du plein au service Vehicule.
+
+    Le plein est deja enregistre dans la base Carburant : un echec de
+    synchronisation n'invalide pas l'ecriture locale, mais il est journalise
+    afin de pouvoir etre rejoue lors du plein suivant.
+    """
+    url = VEHICULE_URL + CHEMIN_VEHICULE_KILOMETRAGE.format(id=vehicule_id)
+    try:
+        reponse = httpx.patch(
+            url,
+            headers={**_en_tetes(), "Content-Type": "application/json"},
+            json={"kilometrage": kilometrage},
+            timeout=TIMEOUT,
+        )
+    except httpx.HTTPError as exc:
+        logger.warning(
+            "Synchronisation kilometrage impossible pour le vehicule %s: %s",
+            vehicule_id, exc,
+        )
+        return False
+
+    if reponse.status_code >= 400:
+        logger.warning(
+            "Synchronisation kilometrage refusee pour le vehicule %s: HTTP %s %s",
+            vehicule_id, reponse.status_code, reponse.text,
+        )
+        return False
+    return True
 
 
 def lister_vehicules() -> list[dict[str, int | str]]:

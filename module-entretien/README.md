@@ -42,13 +42,13 @@ les quatre microservices.
 
 - **Aucune base `entretien_db` ne doit être créée.** Le script `db/init/02-entretien.sql` a été
   supprimé et aucune configuration du dépôt ne référence cette base.
-- Les tables `entretiens`, `entretien_historique`, `alertes`, `declarations_panne`,
+- Les tables `entretiens`, `entretien_historique`, `declarations_panne`,
   `integrations_outbox`, `integrations_idempotence` et `gestionnaires` coexistent avec
   `vehicules`, `chauffeurs` et `carburants` dans le même schéma et le même volume MySQL.
-- Il n'existe pas de table physique `echeances` : les échéances sont calculées depuis les
-  colonnes `date_prochaine_echeance` / `km_prochaine_echeance` de `entretiens` et matérialisées
-  dans `alertes` (voir `EcheanceService`). De même, les affectations des chauffeurs sont
-  stockées dans `chauffeurs.vehicule_id`. Aucune table vide dupliquée n'est créée.
+- Il n'existe pas de table physique `echeances` ni d'alertes : les échéances sont calculées
+  depuis les colonnes `date_prochaine_echeance` / `km_prochaine_echeance` de `entretiens`.
+  Les affectations des chauffeurs sont stockées dans `chauffeurs.vehicule_id`.
+  Aucune table vide dupliquée n'est créée.
 - `php artisan migrate` au démarrage est idempotent : il ne recrée ni ne remplace les tables
   existantes.
 - Ce choix **diverge volontairement** de la p. 8 du cahier des charges (« une base par service »).
@@ -65,14 +65,9 @@ Mocks : vehicule 1/2/5 = DISPONIBLE, 3 = HORS_SERVICE, 4 = ARCHIVE ; chauffeur 1
 
 Trois écarts assumés sont volontairement conservés : ils sont documentés ici plutôt que modifiés dans le code.
 
-- **Diagramme de classes — type d'alerte `AVANT_ECHEANCE`** : le code utilise la constante `Alerte::PROCHE`
-  (valeur `PROCHE`, voir `app/Models/Alerte.php` et `app/Services/EcheanceService.php`). `PROCHE` correspond à
-  `AVANT_ECHEANCE` dans le diagramme : même sens (échéance à venir dans les 15 jours ou 500 km), simple
-  différence de dénomination. Aucun renommage n'est effectué : ni la constante, ni la valeur stockée,
-  ni la migration, ni les alertes existantes.
 - **Cas d'utilisation — acteur « Mécanicien »** : il n'existe pas de rôle distinct. Le « Mécanicien » du
-  diagramme correspond au rôle `GESTIONNAIRE` du système : il planifie, démarre, termine et annule les
-  entretiens. Les seuls rôles sont `ADMINISTRATEUR`, `GESTIONNAIRE` et `CHAUFFEUR`
+  diagramme correspond au rôle `GESTIONNAIRE` du système : il démarre, termine et annule les
+  entretiens ; la création est réservée à l'administrateur. Les seuls rôles sont `ADMINISTRATEUR`, `GESTIONNAIRE` et `CHAUFFEUR`
   (`app/Support/AuthUser.php`), conformément au §4.2 du cahier des charges. Aucun rôle `MECANICIEN`
   n'est créé.
 - **Cas d'utilisation / activité — changement de statut du véhicule à la planification** : le diagramme place
@@ -95,10 +90,9 @@ Trois écarts assumés sont volontairement conservés : ils sont documentés ici
   par un index unique sur une colonne generatee (`entretiens_en_cours_par_vehicule_unique`, migration 000003).
 - Terminer : le vehicule repasse DISPONIBLE, le kilometrage est mis a jour.
 - Echeance (preventif) : calculee depuis `config/entretien.php` (ex. VIDANGE = 6 mois / 10 000 km).
-  Un changement de `categorie` recalcule immediatement l'echeance et clot les alertes de l'ancienne.
-- Alertes : le CRON ne **reouvre jamais** une alerte deja resolue (`resolue_at` n'est jamais remis a null).
-  Un entretien ne peut pas avoir `PROCHE` et `EN_RETARD` ouverts en meme temps : `EN_RETARD` l'emporte,
-  et les alertes devenues sans objet sont resolues automatiquement (date ou categorie modifiee).
+  Un changement de `categorie` recalcule immediatement l'echeance.
+- Le mécanisme d'alertes (modèle, service, commande CRON, endpoint et page frontend) a été supprimé :
+  les échéances restent calculées et affichées sur le détail d'un entretien, sans génération d'alertes.
 - Kilometrage saisi >= kilometrage du vehicule, **a la creation et au PUT** (`KILOMETRAGE_INVALIDE`).
   Le PUT n'interroge le service Vehicule que si le client modifie effectivement `kilometrage`.
 - Conversion panne -> entretien : le kilometrage declare est obligatoire et verifie contre celui du
@@ -148,16 +142,15 @@ scheduler). La sortie distingue les lignes appliquées, encore en échec et en d
 - `PATCH /api/declarations-panne/{id}/rejeter` : statut REJETEE, sous verrou et update conditionnel.
 - Une declaration deja traitee renvoie 422 `DECLARATION_DEJA_TRAITEE` (sauf rejou idempotent de prise en charge,
   qui renvoie 200 avec l'entretien existant). Une modification concurrente renvoie 409 `DECLARATION_CONFLIT`.
-## Scheduler et alertes
+## Scheduler
 
-Le conteneur `entretien-scheduler` lance `php artisan schedule:work`. La commande
-`entretiens:verifier-echeances` s'execute **chaque jour a 02:00** et genere les alertes (PROCHE / EN_RETARD).
+Le conteneur `entretien-scheduler` lance `php artisan schedule:work`. Il ne reste que la reprise
+automatique des synchronisations Véhicule différées (`entretiens:synchroniser-vehicules`, chaque minute).
+Aucune commande de génération d'alertes n'est plus planifiée.
 
 ```powershell
-docker compose exec entretien-app php artisan entretiens:verifier-echeances
+docker compose exec entretien-app php artisan entretiens:synchroniser-vehicules
 ```
-
-Seuils : `ALERTE_JOURS_AVANT` (15 jours) et `ALERTE_KM_AVANT` (500 km). Consultation : `GET /api/alertes`.
 
 ## Archivage
 
@@ -165,24 +158,14 @@ Seuils : `ALERTE_JOURS_AVANT` (15 jours) et `ALERTE_KM_AVANT` (500 km). Consulta
 Reserve a l'ADMIN, uniquement sur un entretien TERMINE ou ANNULE. Historique complet d'un vehicule
 (archives incluses) : `GET /api/vehicules/{id}/entretiens`.
 
-## Extensions (archives et alertes planifiees)
+## Filtre d'archivage
 
-- **Filtre d'archivage** : `GET /api/entretiens` accepte `archives=exclure` (defaut), `inclure` ou
-  `seulement`. L'ancien `inclure_archives=1` reste accepte et equivaut a `inclure` (une valeur invalide
-  de `archives` donne 422 `VALIDATION_ERREUR`). Le frontend `EntretiensList` expose le select
-  « Archives : Masquer / Inclure / Seulement », conserve la valeur dans l'URL et la remet a zero avec
-  « Reinitialiser » ; le lien STAFF « Archives » ouvre directement `/entretien/liste?archives=seulement`.
-  Le badge « Archive » deja present s'affiche desormais quand les archives sont inclues.
-- **Alertes des entretiens PLANIFIES** : en plus de la prochaine echeance des preventifs termines
-  (inchangee), le CRON quotidien traite chaque entretien PLANIFIE non archive : date depassee ->
-  `EN_RETARD`, date dans les `ALERTE_JOURS_AVANT` jours -> `PROCHE`, sinon rien. Le message est
-  « Entretien #id planifie le JJ/MM/AAAA (dans X jours / en retard de X jours) » et
-  `echeance_date = date_entretien`. Meme `updateOrCreate` que l'existant : idempotent, aucune alerte
-  resolue n'est reouverte. L'alerte est fermee quand l'entretien quitte PLANIFIE (demarrage, annulation)
-  ou est archive ; la cloture et le changement de categorie epargnent desormais l'alerte PLANIFIE d'un
-  **autre** entretien du meme vehicule. Aucun appel Vehicule supplementaire, aucune migration,
-  aucun renommage `PROCHE`/`EN_RETARD`. La page `Alertes.jsx` affiche des colonnes lisibles avec
-  badge rouge `EN_RETARD` / orange `PROCHE` et un lien vers l'entretien.
+`GET /api/entretiens` accepte `archives=exclure` (defaut), `inclure` ou `seulement`.
+L'ancien `inclure_archives=1` reste accepte et equivaut a `inclure` (une valeur invalide
+de `archives` donne 422 `VALIDATION_ERREUR`). Le frontend `EntretiensList` expose le select
+« Archives : Masquer / Inclure / Seulement », conserve la valeur dans l'URL et la remet a zero avec
+« Reinitialiser » ; le lien STAFF « Archives » ouvre directement `/entretien/liste?archives=seulement`.
+Le badge « Archive » deja present s'affiche desormais quand les archives sont inclues.
 
 ## Tests
 
@@ -190,17 +173,12 @@ Reserve a l'ADMIN, uniquement sur un entretien TERMINE ou ANNULE. Historique com
 docker compose run --rm --no-deps -e DB_CONNECTION=sqlite -e DB_DATABASE=:memory: entretien-app php artisan test
 ```
 
-Attendu : **132 tests, 381 assertions** (suite exécutée via l'image Docker reconstruite, SQLite en mémoire). Les tests
-simulent les services externes (`Http::fake`) et couvrent notamment :
+Les tests simulent les services externes (`Http::fake`) et couvrent notamment :
 - la saga/outbox : rejou idempotent par opération, 409 « même état », limite de tentatives/dead-letter,
   compensation avec compare-and-swap (`SynchronisationVehiculeTest`) ;
 - la conversion panne → entretien : km absent/invalide, rejou idempotent, concurrence avec modèle périmé,
   index unique (`DeclarationPanneTraitementTest`) ;
-- la cohérence des alertes : non-réouverture, exclusivité `PROCHE`/`EN_RETARD`, changement de catégorie
-  (`AlertesNonReouvertesTest`) ;
-- les extensions : filtres `archives` (exclure/inclure/seulement + compatibilité), alertes des planifiés
-  (retard/proche/idempotence/non-réouverture), fermeture aux transitions et garde-fou de `terminer()`
-  (`ArchivesEtAlertesPlanifieesTest`) ;
+- les filtres `archives` (exclure/inclure/seulement + compatibilité) ;
 - la documentation : tout code d'erreur émis par `app/` est documenté dans `openapi.yaml`
   (`OpenApiErreursDocumenteesTest`) ; création sur véhicule inexistant → 404 sans INSERT et planification
   sans changement de statut Véhicule (`EntretienApiTest`) ;
@@ -211,17 +189,19 @@ ses en-têtes JWT via `tokenHeaders()`. Aucun test ne repose sur un privilège i
 
 ## Authentification et roles
 
-Authentification par JWT (HS256). Le service **verifie** le token ; il ne l'emet pas
-(le token est emis par le service Chauffeur, `POST /api/auth/login`, meme `JWT_SECRET`).
+Authentification par JWT (HS256). Le service **verifie** tous les tokens et emet uniquement
+ceux des gestionnaires via `POST /api/gestionnaires/login` (duree 12 h). Les tokens
+ADMINISTRATEUR et CHAUFFEUR sont emis par le service Chauffeur (`POST /api/auth/login`,
+`POST /api/espace-chauffeur/login`), avec le meme `JWT_SECRET` et `TOKEN_TTL_SECONDS=43200`.
 Header : `Authorization: Bearer <token>`.
-Claims : `sub` (id), `role`, `vehicule_id` (optionnel), `id_chauffeur` (pour un chauffeur), `exp`.
+Claims : `sub` (id), `role`, `name` (nom lisible, utilisé pour afficher les responsables d'un entretien), `vehicule_id` (optionnel), `id_chauffeur` (pour un chauffeur), `exp`.
 
 **Contrôle d'accès (fail-closed)** : une requête sans JWT est rejetée en 401 `NON_AUTHENTIFIE` ;
 `AuthUser` ne devient plus jamais ADMINISTRATEUR par défaut.
 
 **Déclarations de panne** :
 - un CHAUFFEUR ne voit que ses propres déclarations (filtre serveur sur `chauffeur_id`, même si un
-  `?vehicule_id=` est fourni) ; les ADMIN/GESTIONNAIRE voient tout ;
+  `?vehicule_id=` est fourni) ; l'ADMINISTRATEUR voit tout ; le GESTIONNAIRE n'y a pas accès ;
 - `chauffeur_id` est **ignoré dans le corps** pour un CHAUFFEUR : il est dérivé du JWT
   (`id_chauffeur`, sinon `sub` numérique). Un token CHAUFFEUR sans identité est refusé en
   403 `IDENTITE_CHAUFFEUR_MANQUANTE` ;
@@ -233,16 +213,20 @@ Erreurs : 401 `NON_AUTHENTIFIE` / `TOKEN_INVALIDE` / `TOKEN_EXPIRE`, 403 `ACCES_
 
 | Action | Roles autorises |
 |---|---|
-| Lecture entretiens, historique, declarations | ADMINISTRATEUR, GESTIONNAIRE, CHAUFFEUR |
-| Alertes, creer/modifier/demarrer/terminer/annuler un entretien | ADMINISTRATEUR, GESTIONNAIRE |
-| Prendre en charge / rejeter une declaration | ADMINISTRATEUR, GESTIONNAIRE |
+| Lecture entretiens, historique | ADMINISTRATEUR, GESTIONNAIRE, CHAUFFEUR |
+| Modifier / annuler un entretien | ADMINISTRATEUR, GESTIONNAIRE |
+| Creer un entretien | ADMINISTRATEUR |
+| Demarrer / terminer un entretien | GESTIONNAIRE |
+| Lecture des declarations | ADMINISTRATEUR, CHAUFFEUR (ses propres declarations) |
+| Prendre en charge / rejeter une declaration | ADMINISTRATEUR |
 | Archiver (DELETE) | ADMINISTRATEUR |
 | Declarer une panne | CHAUFFEUR, ADMINISTRATEUR |
 
 `GET /api/health` reste public.
 
-Limite actuelle : le login du service Chauffeur n'emet que des tokens ADMINISTRATEUR.
-Les roles GESTIONNAIRE et CHAUFFEUR sont verifies par Entretien et couverts par les tests.
+Les tokens GESTIONNAIRE sont emis par Entretien (12 h) ; les tokens ADMINISTRATEUR et CHAUFFEUR
+sont emis par le service Chauffeur (12 h). Les trois roles sont verifies par Entretien et couverts
+par les tests.
 ## Postman
 
 Collection : `postman/collections/Module Entretien/` (variables `base_url`, `entretien_id`).

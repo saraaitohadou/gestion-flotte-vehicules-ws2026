@@ -21,3 +21,14 @@
 !.env.example
 frontend-entretien/.env.local
 db/backups/
+
+# Build Carburant généré localement (non versionné)
+module-carburant/frontend-dist/assets/*
+
+# Documents de travail locaux (non poussés)
+RAPPORT_AUDIT_PROBLEMES.md
+DAT_Gestion_Flotte_WS2026_v2.docx
+~$*.docx
+
+# Artefacts de tests générés
+.coverage

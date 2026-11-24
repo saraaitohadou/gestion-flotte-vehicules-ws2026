@@ -33,11 +33,16 @@ export default function Layout() {
               <NavLink to="/entretien/vehicules">Vehicules</NavLink>
               <NavLink to="/entretien/liste">Entretiens</NavLink>
               <NavLink to="/entretien/liste?archives=seulement">Archives</NavLink>
-              <NavLink to="/entretien/declarations">Declarations de panne</NavLink>
-              <NavLink to="/entretien/alertes">Alertes</NavLink>
             </>
           )}
-          {role === ROLES.ADMIN && (<><NavLink to="/entretien/gestionnaires">Gestionnaires</NavLink><NavLink to="/pannes/nouvelle">Declarer une panne</NavLink></>)}
+          {role === ROLES.ADMIN && (
+            <>
+              <NavLink to="/entretien/nouveau">Nouvel entretien</NavLink>
+              <NavLink to="/entretien/declarations">Declarations de panne</NavLink>
+              <NavLink to="/entretien/gestionnaires">Gestionnaires</NavLink>
+              <NavLink to="/pannes/nouvelle">Declarer une panne</NavLink>
+            </>
+          )}
           {role === ROLES.CHAUF && (
             <>
               <NavLink to="/pannes/nouvelle">Declarer une panne</NavLink>

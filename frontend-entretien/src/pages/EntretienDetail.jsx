@@ -19,6 +19,7 @@ export default function EntretienDetail() {
   const [e, setE] = useState(null);
   const [vehicule, setVehicule] = useState(null);
   const [historique, setHistorique] = useState([]);
+  const [erreurHistorique, setErreurHistorique] = useState("");
   const [carburant, setCarburant] = useState(null);
   const [erreurCarburant, setErreurCarburant] = useState("");
   const [chargementCarburant, setChargementCarburant] = useState(false);
@@ -31,6 +32,7 @@ export default function EntretienDetail() {
   const charger = useCallback(async () => {
     setLoading(true);
     setError("");
+    setErreurHistorique("");
     try {
       const { data } = await api.get(id);
       setE(data);
@@ -41,8 +43,15 @@ export default function EntretienDetail() {
       } catch {
         setVehicule(null);
       }
-      const h = await api.historiqueVehicule(data.vehicule_id);
-      setHistorique(h.data ?? []);
+      // L'historique est une section secondaire : un echec ici ne doit pas
+      // masquer le chargement de l'entretien avec un faux "ressource introuvable".
+      try {
+        const h = await api.historiqueVehicule(data.vehicule_id);
+        setHistorique(h.data ?? []);
+      } catch (err) {
+        setHistorique([]);
+        setErreurHistorique(messageErreur(err, "charger l'historique du vehicule"));
+      }
 
       // Statistiques carburant : appel REST via Entretien, sans acces direct a la table.
       setChargementCarburant(true);
@@ -86,6 +95,7 @@ export default function EntretienDetail() {
   if (!e) return <p className="alert alert-bad" role="alert">{error || "Entretien introuvable."}</p>;
 
   const estAdmin = user?.role === ROLES.ADMIN;
+  const estGestionnaire = user?.role === ROLES.GEST;
   const actif = !e.archive && ["PLANIFIE", "EN_COURS"].includes(e.statut);
   const archivable = estAdmin && !e.archive && ["TERMINE", "ANNULE"].includes(e.statut);
 
@@ -107,10 +117,10 @@ export default function EntretienDetail() {
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {e.statut === "PLANIFIE" && !e.archive && (
+          {estGestionnaire && e.statut === "PLANIFIE" && !e.archive && (
             <button className="btn btn-primary" disabled={busy} onClick={() => agir(() => api.demarrer(e.id), "Entretien demarre.")}>Demarrer</button>
           )}
-          {e.statut === "EN_COURS" && !e.archive && (
+          {estGestionnaire && e.statut === "EN_COURS" && !e.archive && (
             <button className="btn btn-primary" disabled={busy} onClick={() => agir(() => api.terminer(e.id), "Entretien termine.")}>Terminer</button>
           )}
           {actif && <button className="btn" disabled={busy} onClick={() => setConfirm("annuler")}>Annuler l'entretien</button>}
@@ -175,6 +185,7 @@ export default function EntretienDetail() {
 
       {onglet === "histo" && (
         <div className="panel" style={{ overflowX: "auto" }}>
+          {erreurHistorique && <p className="alert alert-bad" role="alert">{erreurHistorique}</p>}
           {historique.length === 0 ? <p className="muted">Aucun entretien pour ce vehicule.</p> : (
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>

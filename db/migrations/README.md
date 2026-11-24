@@ -8,7 +8,7 @@ destruction de données.
 | Véhicule | `vehicules` | SQL versionné | `db/migrations/001_create_vehicules.sql` |
 | Chauffeur | `chauffeurs` | SQL versionné | `module-chauffeur/db/migrations/001_create_chauffeurs.sql` |
 | Carburant | `carburants` | Alembic | `module-carburant/alembic/versions/0001_create_carburants.py` |
-| Entretien | `entretiens`, `entretien_historique`, `alertes`, `declarations_panne`, `integrations_outbox`, `integrations_idempotence`, `gestionnaires`, `migrations` | Laravel Migrations | `module-entretien/database/migrations/` |
+| Entretien | `entretiens`, `entretien_historique`, `declarations_panne`, `integrations_outbox`, `integrations_idempotence`, `gestionnaires`, `migrations` | Laravel Migrations | `module-entretien/database/migrations/` |
 
 ## Règles appliquées
 
@@ -24,8 +24,8 @@ destruction de données.
 
 Note : `affectations` et `echeances` sont des concepts métier calculés. Ils sont stockés
 respectivement dans `chauffeurs.vehicule_id` et dans les colonnes d'échéance de
-`entretiens` + la table `alertes`. Aucune table vide supplémentaire n'est créée, afin de
-ne pas introduire une seconde source de vérité.
+`entretiens`. Le mécanisme d'alertes a été supprimé. Aucune table vide supplémentaire
+n'est créée, afin de ne pas introduire une seconde source de vérité.
 
 ## Application
 

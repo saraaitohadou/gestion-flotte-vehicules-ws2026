@@ -6,6 +6,33 @@ import { api } from "../api.js";
 
 const PORTAIL_ADMIN_URL = "http://localhost:5170";
 const ENTRETIEN_FRONT_URL = "http://localhost:5176";
+const ESPACE_CHAUFFEUR_URL = "http://localhost:8002/espace-chauffeur";
+
+const ORIGINES_AUTORISEES = new Set([
+  PORTAIL_ADMIN_URL,
+  "http://localhost:5174",
+  ENTRETIEN_FRONT_URL,
+  "http://localhost:8002",
+]);
+
+// Un ?redirect= ne doit jamais envoyer l'utilisateur vers un domaine inconnu.
+function urlAutorisee(raw) {
+  if (!raw || !/^https?:\/\//i.test(raw)) return null;
+  try {
+    const u = new URL(raw);
+    if (!ORIGINES_AUTORISEES.has(u.origin)) return null;
+    if (u.origin === "http://localhost:5174" && u.pathname === "/connexion") return null;
+    return u.toString();
+  } catch {
+    return null;
+  }
+}
+
+function defautPour(role) {
+  if (role === "gestionnaire") return ENTRETIEN_FRONT_URL;
+  if (role === "admin") return PORTAIL_ADMIN_URL;
+  return ESPACE_CHAUFFEUR_URL;
+}
 
 const ONGLETS = [
   { id: "chauffeur", icon: "🚚", label: "Chauffeur" },
@@ -42,8 +69,19 @@ export default function Login() {
     }
   }, [isLogout, user, logout]);
 
-  const destination = location.state?.from || "/chauffeurs";
-  if (user && !redirecting && !isLogout) return <Navigate to={destination} replace />;
+  const retourDemande = urlAutorisee(redirectParam);
+
+  // Deja connecte sur le login : on honore enfin le ?redirect= au lieu de
+  // renvoyer systematiquement vers /chauffeurs.
+  useEffect(() => {
+    if (user && !redirecting && !isLogout && retourDemande) {
+      window.location.replace(retourDemande);
+    }
+  }, [user, redirecting, isLogout, retourDemande]);
+
+  if (user && !redirecting && !isLogout && !retourDemande) {
+    return <Navigate to={location.state?.from || "/chauffeurs"} replace />;
+  }
 
   const handleRoleChange = (newRole) => {
     setRole(newRole);
@@ -102,7 +140,7 @@ export default function Login() {
           throw new Error("Réponse d'authentification invalide.");
         }
         setToken(data.access_token);
-        const cible = redirectParam || ENTRETIEN_FRONT_URL;
+        const cible = urlAutorisee(redirectParam) || defautPour("gestionnaire");
         const sep = cible.includes("?") ? "&" : "?";
         setSuccessMsg("Connexion gestionnaire réussie ! Redirection...");
         setTimeout(() => {
@@ -127,7 +165,7 @@ export default function Login() {
       try {
         await login(username.trim(), password);
         const token = getToken();
-        const cible = redirectParam || PORTAIL_ADMIN_URL;
+        const cible = urlAutorisee(redirectParam) || defautPour("admin");
         const sep = cible.includes("?") ? "&" : "?";
         setSuccessMsg("Connexion administrateur réussie ! Redirection...");
         setTimeout(() => {

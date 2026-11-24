@@ -15,7 +15,6 @@ servers:
   - url: http://localhost:8004/api
 tags:
   - name: Entretiens
-  - name: Alertes
   - name: DeclarationsPanne
   - name: Gestionnaires
   - name: Referentiels
@@ -102,7 +101,7 @@ paths:
         '500': { $ref: '#/components/responses/Erreur500' }
     post:
       tags: [Entretiens]
-      summary: Creer un entretien PLANIFIE (ADMINISTRATEUR, GESTIONNAIRE)
+      summary: Creer un entretien PLANIFIE (ADMINISTRATEUR uniquement)
       description: >-
         Un vehicule EN_MISSION, HORS_SERVICE ou ARCHIVE est refuse. Le
         kilometrage saisi doit etre superieur ou egal a celui du vehicule.
@@ -149,9 +148,8 @@ paths:
       tags: [Entretiens]
       summary: Modifier un entretien PLANIFIE ou EN_COURS (ADMINISTRATEUR, GESTIONNAIRE)
       description: >-
-        Un changement de categorie recalcule immediatement l'echeance et clot
-        les alertes ouvertes de l'ancienne categorie. Le kilometrage est
-        reverifie aupres du service Vehicule.
+        Un changement de categorie recalcule immediatement l'echeance. Le
+        kilometrage est reverifie aupres du service Vehicule.
       operationId: modifierEntretien
       requestBody:
         required: true
@@ -191,7 +189,7 @@ paths:
   /entretiens/{id}/demarrer:
     patch:
       tags: [Entretiens]
-      summary: PLANIFIE vers EN_COURS (ADMINISTRATEUR, GESTIONNAIRE)
+      summary: PLANIFIE vers EN_COURS (GESTIONNAIRE uniquement)
       description: >-
         Saga avec outbox. Le vehicule passe EN_MAINTENANCE apres le commit
         local. Chaque operation est idempotente et suit sa propre tentative.
@@ -229,7 +227,7 @@ paths:
   /entretiens/{id}/terminer:
     patch:
       tags: [Entretiens]
-      summary: EN_COURS vers TERMINE (ADMINISTRATEUR, GESTIONNAIRE)
+      summary: EN_COURS vers TERMINE (GESTIONNAIRE uniquement)
       description: >-
         Le vehicule repasse DISPONIBLE et son compteur est toujours mis a jour.
         Le kilometrage fourni doit etre au moins egal a celui du vehicule.
@@ -301,39 +299,13 @@ paths:
         '401': { $ref: '#/components/responses/Erreur401' }
         '403': { $ref: '#/components/responses/Erreur403' }
         '500': { $ref: '#/components/responses/Erreur500' }
-  /alertes:
-    get:
-      tags: [Alertes]
-      summary: Alertes de maintenance non resolues par defaut
-      description: >-
-        Roles: ADMINISTRATEUR, GESTIONNAIRE (les CHAUFFEURS sont limites a leur
-        vehicule). PROCHE et EN_RETARD ne peuvent pas etre ouvertes simultanement
-        pour un meme entretien. Le CRON quotidien genere aussi des alertes pour
-        les entretiens PLANIFIES dont la date approche ou est depassee ; leur
-        echeance_date est la date_entretien.
-      operationId: listerAlertes
-      parameters:
-        - { name: vehicule_id, in: query, schema: { type: integer } }
-        - { name: type, in: query, schema: { type: string, enum: [PROCHE, EN_RETARD] } }
-        - { name: inclure_resolues, in: query, schema: { type: boolean, default: false } }
-        - { name: per_page, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 15 } }
-      responses:
-        '200':
-          description: Liste paginee
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ListeAlertes' }
-        '401': { $ref: '#/components/responses/Erreur401' }
-        '403': { $ref: '#/components/responses/Erreur403' }
-        '422': { $ref: '#/components/responses/Erreur422' }
-        '500': { $ref: '#/components/responses/Erreur500' }
   /declarations-panne:
     get:
       tags: [DeclarationsPanne]
       summary: Lister les declarations de panne
       description: >-
-        Roles: ADMINISTRATEUR, GESTIONNAIRE, CHAUFFEUR. Un CHAUFFEUR ne voit que
-        ses propres declarations.
+        Roles: ADMINISTRATEUR, CHAUFFEUR. Le GESTIONNAIRE n'a pas acces a cette
+        liste. Un CHAUFFEUR ne voit que ses propres declarations.
       operationId: listerDeclarations
       parameters:
         - { name: statut, in: query, schema: { $ref: '#/components/schemas/StatutDeclaration' } }
@@ -379,7 +351,7 @@ paths:
     get:
       tags: [DeclarationsPanne]
       summary: Detail d'une declaration
-      description: Un CHAUFFEUR ne peut consulter que la sienne.
+      description: Roles ADMINISTRATEUR, CHAUFFEUR ; le GESTIONNAIRE n'y a pas acces. Un CHAUFFEUR ne peut consulter que la sienne.
       operationId: afficherDeclaration
       responses:
         '200':
@@ -396,7 +368,7 @@ paths:
       tags: [DeclarationsPanne]
       summary: Creer un entretien CORRECTIF et marquer la declaration TRAITEE
       description: >-
-        Roles: ADMINISTRATEUR, GESTIONNAIRE. Verrou de ligne, update
+        Roles: ADMINISTRATEUR uniquement. Verrou de ligne, update
         conditionnel et index unique: une declaration ne produit qu'un seul
         entretien. Le kilometrage declare est valide contre celui du vehicule;
         un rejou renvoie la ressource existante sans creer de doublon.
@@ -419,7 +391,7 @@ paths:
   /declarations-panne/{id}/rejeter:
     patch:
       tags: [DeclarationsPanne]
-      summary: Rejeter une declaration (ADMINISTRATEUR, GESTIONNAIRE)
+      summary: Rejeter une declaration (ADMINISTRATEUR uniquement)
       operationId: rejeterDeclaration
       parameters:
         - { name: id, in: path, required: true, schema: { type: integer } }
@@ -734,25 +706,6 @@ components:
           properties:
             links: { type: object }
             meta: { type: object }
-    Alerte:
-      type: object
-      properties:
-        id: { type: integer }
-        entretien_id: { type: integer }
-        vehicule_id: { type: integer }
-        categorie: { type: string, nullable: true }
-        type: { type: string, enum: [PROCHE, EN_RETARD] }
-        message: { type: string }
-        echeance_date: { type: string, format: date, nullable: true }
-        echeance_km: { type: integer, nullable: true }
-        resolue: { type: boolean }
-        resolue_at: { type: string, format: date-time, nullable: true }
-    ListeAlertes:
-      type: object
-      properties:
-        data: { type: array, items: { $ref: '#/components/schemas/Alerte' } }
-        links: { type: object }
-        meta: { type: object }
     DeclarationInput:
       type: object
       required: [vehicule_id, categorie, description]

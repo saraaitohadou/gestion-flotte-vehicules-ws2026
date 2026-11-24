@@ -398,6 +398,7 @@ def test_ut_car_31_suppression_plein_existant(db):
 class FausseReponse:
     def __init__(self, status_code):
         self.status_code = status_code
+        self.text = ""
 
 
 def test_ut_car_36_vehicule_introuvable_ne_cree_aucun_plein(db):
@@ -449,6 +450,35 @@ def test_ut_car_40_client_http_injoignable_donne_503(monkeypatch):
     with pytest.raises(HTTPException) as e:
         clients._verifier("http://x", "/vehicules/{id}", 1, "Vehicule")
     assert e.value.status_code == 503
+
+
+def test_ut_car_43_sync_kilometrage_appelle_patch_du_service_vehicule(monkeypatch):
+    vu = {}
+
+    def faux_patch(url, headers=None, json=None, timeout=None):
+        vu.update(url=url, headers=headers, json=json)
+        return FausseReponse(200)
+
+    monkeypatch.setattr(clients.httpx, "patch", faux_patch)
+    monkeypatch.setenv("SERVICE_API_KEY", "cle-service-tests")
+
+    assert clients.synchroniser_kilometrage_vehicule(7, 45650) is True
+    assert vu["url"] == "http://vehicule-service/vehicules/7/kilometrage"
+    assert vu["json"] == {"kilometrage": 45650}
+    assert vu["headers"]["X-API-Key"] == "cle-service-tests"
+
+
+def test_ut_car_44_sync_kilometrage_echoue_sans_lever_d_exception(monkeypatch):
+    monkeypatch.setattr(
+        clients.httpx, "patch", lambda url, headers=None, json=None, timeout=None: FausseReponse(500)
+    )
+    assert clients.synchroniser_kilometrage_vehicule(7, 45650) is False
+
+    def en_panne(url, headers=None, json=None, timeout=None):
+        raise httpx.ConnectError("connexion refusee")
+
+    monkeypatch.setattr(clients.httpx, "patch", en_panne)
+    assert clients.synchroniser_kilometrage_vehicule(7, 45650) is False
 
 
 # ------------------------- regles de gestion pas encore developpees (non executees)

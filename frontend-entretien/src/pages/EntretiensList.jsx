@@ -60,7 +60,7 @@ export default function EntretiensList() {
           <h1>Entretiens</h1>
           <p className="muted">{meta ? `${meta.total} entretien(s)` : "Liste des entretiens"}</p>
         </div>
-        <Link className="btn btn-primary" to="/entretien/nouveau">Nouvel entretien</Link>
+        {user?.role === ROLES.ADMIN && <Link className="btn btn-primary" to="/entretien/nouveau">Nouvel entretien</Link>}
       </div>
 
       <div className="panel" style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>

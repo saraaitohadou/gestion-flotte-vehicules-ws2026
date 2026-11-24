@@ -2,6 +2,7 @@ from datetime import date
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 import clients  
 import models
@@ -101,6 +102,21 @@ def get_or_404(db: Session, carburant_id: int) -> models.Carburant:
     if not obj:
         raise HTTPException(404, "Plein introuvable")
     return obj
+
+
+def synchroniser_compteur_vehicule(db: Session, vehicule_id: int) -> bool:
+    """Pousse le plus haut compteur connu vers le service Vehicule.
+
+    On utilise le maximum des pleins (et non le seul plein modifie) pour rester
+    monotone : modifier un plein ancien ne doit jamais faire reculer le
+    kilométrage du véhicule.
+    """
+    km_max = db.query(func.max(models.Carburant.kilometrage)).filter(
+        models.Carburant.vehicule_id == vehicule_id
+    ).scalar()
+    if km_max is None:
+        return False
+    return clients.synchroniser_kilometrage_vehicule(vehicule_id, int(km_max))
 
 
 # ---------- Statistiques ----------
@@ -256,6 +272,8 @@ def creer_plein(
     db.add(obj)
     db.commit()
     recalculer_vehicule(db, obj.vehicule_id)  # consommation + alerte
+    # RG-V4 : le compteur du vehicule suit le kilométrage declare au plein.
+    synchroniser_compteur_vehicule(db, obj.vehicule_id)
     db.refresh(obj)
     return obj
 
@@ -366,8 +384,10 @@ def modifier_plein(
 
     db.commit()
     recalculer_vehicule(db, obj.vehicule_id)
+    synchroniser_compteur_vehicule(db, obj.vehicule_id)
     if ancien_vehicule_id != obj.vehicule_id:
         recalculer_vehicule(db, ancien_vehicule_id)
+        synchroniser_compteur_vehicule(db, ancien_vehicule_id)
     db.refresh(obj)
     return obj
 

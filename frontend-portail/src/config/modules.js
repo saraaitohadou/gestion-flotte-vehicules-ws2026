@@ -29,7 +29,7 @@ export const MODULES = [
   {
     id: 'entretien',
     titre: 'Maintenance & Entretien',
-    description: 'Révisions périodiques, réparations, alertes et historique.',
+    description: 'Révisions périodiques, réparations, échéances et historique.',
     urlFrontend: import.meta.env.VITE_URL_ENTRETIEN ?? 'http://localhost:5176/entretien',
     portBackend: '8004',
     badge: 'Laravel',

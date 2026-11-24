@@ -6,7 +6,7 @@ const MODULE_STYLES = {
   vehicules: {
     icon: '🚗',
     label: 'Parc Automobile',
-    bgIcon: 'bg-blue-50 text-blue-600',
+    bgIcon: 'bg-blue-50 text-primary',
     borderHover: 'hover:border-blue-400',
     badge: 'bg-blue-50 text-blue-700',
   },
@@ -62,12 +62,12 @@ export default function App() {
 
   // ÉCRAN 2 : TABLEAU DE BORD ADMINISTRATEUR
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen bg-app flex flex-col">
       {/* Barre supérieure élégante */}
-      <header className="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-10">
+      <header className="bg-ink text-white border-b border-slate-800 sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-amber-400 text-slate-900 font-extrabold text-lg flex items-center justify-center shadow-sm">
+            <div className="w-9 h-9 rounded-lg bg-brand-mark text-ink font-extrabold text-lg flex items-center justify-center shadow-sm">
               F
             </div>
             <div>
@@ -100,7 +100,7 @@ export default function App() {
       {/* Contenu principal */}
       <main className="flex-1 max-w-6xl w-full mx-auto py-12 px-6">
         <div className="mb-10">
-          <p className="text-sm font-semibold text-blue-600 uppercase tracking-wider mb-1">
+          <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-1">
             Vue d&apos;ensemble
           </p>
           <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
@@ -139,7 +139,7 @@ export default function App() {
                     </span>
                   </div>
 
-                  <h2 className="text-xl font-bold text-slate-900 group-hover:text-blue-600 transition">
+                  <h2 className="text-xl font-bold text-slate-900 group-hover:text-primary transition">
                     {mod.titre}
                   </h2>
                   <p className="text-sm text-slate-500 mt-2 leading-relaxed">
@@ -147,7 +147,7 @@ export default function App() {
                   </p>
                 </div>
 
-                <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-sm font-semibold text-slate-700 group-hover:text-blue-600 transition">
+                <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-sm font-semibold text-slate-700 group-hover:text-primary transition">
                   <span>Ouvrir le module</span>
                   <span className="transform group-hover:translate-x-1.5 transition-transform">
                     →

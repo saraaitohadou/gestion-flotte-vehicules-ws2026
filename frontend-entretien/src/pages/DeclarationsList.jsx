@@ -14,7 +14,7 @@ function DeclBadge({ statut }) {
   return <span className={`badge badge-${TONES[statut] ?? "mute"}`}>{LABELS[statut] ?? statut}</span>;
 }
 
-// gestion=true : staff (boutons) ; sinon "Mes declarations" du chauffeur
+// gestion=true : page ADMIN avec boutons de traitement ; sinon "Mes declarations" du chauffeur
 export default function DeclarationsList({ gestion }) {
   const { user } = useAuth();
   const toast = useToast();
