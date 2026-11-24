@@ -6,6 +6,7 @@ if (urlToken) {
 }
 
 const BASE = import.meta.env.VITE_API_URL ?? '/api'
+const CHAUFFEUR_BASE = import.meta.env.VITE_CHAUFFEUR_API_URL ?? 'http://localhost:8002/api'
 const AUTH_URL = import.meta.env.VITE_AUTH_URL ?? 'http://localhost:8002/api/auth/login'
 
 async function getToken() {
@@ -31,11 +32,11 @@ async function getToken() {
   return token
 }
 
-async function request(path, options = {}) {
+async function request(path, options = {}, baseUrl = BASE) {
   let token = await getToken()
 
   const doFetch = (jwt) =>
-    fetch(BASE + path, {
+    fetch(baseUrl + path, {
       ...options,
       headers: {
         'Content-Type': 'application/json',
@@ -46,7 +47,6 @@ async function request(path, options = {}) {
 
   let res = await doFetch(token)
 
-  // Si le token a expiré (401), on le supprime et on retente une fois
   if (res.status === 401) {
     localStorage.removeItem('flotte.token')
     token = await getToken()
@@ -54,7 +54,10 @@ async function request(path, options = {}) {
   }
 
   const data = res.status === 204 ? null : await res.json().catch(() => null)
-  if (!res.ok) throw new Error(data?.erreur ?? `Erreur ${res.status}`)
+  if (!res.ok) {
+    const msg = data?.detail?.message ?? data?.detail ?? data?.erreur ?? `Erreur ${res.status}`
+    throw new Error(typeof msg === 'string' ? msg : `Erreur ${res.status}`)
+  }
   return data
 }
 
@@ -71,4 +74,13 @@ export const vehicules = {
   disponibilite: (id) => request(`/vehicules/${id}/disponibilite`),
   majKilometrage: (id, kilometrage) =>
     request(`/vehicules/${id}/kilometrage`, send('PATCH', { kilometrage })),
+}
+
+export const chauffeurs = {
+  lister: () => request('/chauffeurs', {}, CHAUFFEUR_BASE),
+  disponibles: () => request('/chauffeurs/disponibles', {}, CHAUFFEUR_BASE),
+  affecter: (idChauffeur, vehiculeId) =>
+    request(`/chauffeurs/${idChauffeur}/affecter`, send('POST', { vehicule_id: Number(vehiculeId) }), CHAUFFEUR_BASE),
+  cloturerMission: (idChauffeur) =>
+    request(`/chauffeurs/${idChauffeur}/cloturer-mission`, { method: 'POST' }, CHAUFFEUR_BASE),
 }

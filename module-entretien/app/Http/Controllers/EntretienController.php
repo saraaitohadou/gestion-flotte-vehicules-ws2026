@@ -154,12 +154,18 @@ class EntretienController extends Controller
 
         $this->verifierTransition($entretien, StatutEntretien::EnCours);
 
-        // Pré-vol : si le service Véhicule est injoignable, rien n'est écrit (règle de disponibilité).
         $vehicule       = $this->vehicules->find($entretien->vehicule_id);
         $statutVehicule = strtoupper((string) ($vehicule['statut'] ?? 'DISPONIBLE'));
 
-        // Règle §4.4 : EN_MAINTENANCE n'est atteignable que depuis DISPONIBLE.
-        // Refus avant toute écriture locale et avant toute ligne d'outbox.
+        if ($statutVehicule === 'EN_MISSION') {
+            $this->vehicules->changerStatut(
+                $entretien->vehicule_id,
+                'DISPONIBLE',
+                "demarrer-liberer-{$entretien->id}"
+            );
+            $statutVehicule = 'DISPONIBLE';
+        }
+
         if ($statutVehicule !== 'DISPONIBLE') {
             throw new BusinessException(
                 "Le vehicule #{$entretien->vehicule_id} doit etre DISPONIBLE pour demarrer un entretien (statut actuel : {$statutVehicule}).",
@@ -201,7 +207,6 @@ class EntretienController extends Controller
 
         return new EntretienResource($entretien->fresh()->load('historique'));
     }
-
     public function terminer(Request $request, Entretien $entretien): EntretienResource
     {
         $user = AuthUser::fromRequest($request);

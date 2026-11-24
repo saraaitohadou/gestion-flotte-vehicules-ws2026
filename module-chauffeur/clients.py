@@ -58,12 +58,14 @@ def verifier_disponibilite(vehicule_id: int, bearer_token: Optional[str] = None)
 
 def changer_statut_vehicule(vehicule_id: int, statut: str, bearer_token: Optional[str] = None) -> None:
     """PATCH /vehicules/{id}/statut (EN_MISSION au début, DISPONIBLE à la clôture)."""
+    headers = _auth_headers(bearer_token)
+    headers["X-Source-Service"] = "chauffeur"
     r = _appeler(
         "PATCH",
         VEHICULE_URL,
         f"/vehicules/{vehicule_id}/statut",
         json={"statut": statut},
-        headers=_auth_headers(bearer_token),
+        headers=headers,
     )
     if r.status_code == 200:
         return
@@ -74,7 +76,7 @@ def changer_statut_vehicule(vehicule_id: int, statut: str, bearer_token: Optiona
         _erreur(r.status_code, "VEHICULE_STATUT_REFUSE", msg)
     _erreur(503, "VEHICULE_SERVICE_INDISPONIBLE", f"Service Véhicule a répondu {r.status_code}.")
 
-
+    
 def obtenir_vehicule(vehicule_id: int, bearer_token: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """GET /vehicules/{id} : récupère les détails d'un véhicule."""
     try:
