@@ -1,0 +1,33 @@
+# Étape 1 : Build de l'application React / Vite
+FROM node:20-alpine AS builder
+WORKDIR /app
+
+ARG VITE_AUTH_URL
+ARG VITE_UNIFIED_LOGIN_URL
+ARG VITE_API_URL
+ARG VITE_URL_VEHICULES
+ARG VITE_URL_CHAUFFEURS
+ARG VITE_URL_CARBURANT
+ARG VITE_URL_ENTRETIEN
+
+ENV VITE_AUTH_URL=$VITE_AUTH_URL \
+    VITE_UNIFIED_LOGIN_URL=$VITE_UNIFIED_LOGIN_URL \
+    VITE_API_URL=$VITE_API_URL \
+    VITE_URL_VEHICULES=$VITE_URL_VEHICULES \
+    VITE_URL_CHAUFFEURS=$VITE_URL_CHAUFFEURS \
+    VITE_URL_CARBURANT=$VITE_URL_CARBURANT \
+    VITE_URL_ENTRETIEN=$VITE_URL_ENTRETIEN
+
+COPY package*.json ./
+RUN npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+
+COPY . .
+RUN npm run build && \
+    mkdir -p /app/output && \
+    if [ -d "/app/frontend-dist" ]; then cp -r /app/frontend-dist/* /app/output/; else cp -r /app/dist/* /app/output/; fi
+
+# Étape 2 : Serveur web Nginx léger (~25 Mo)
+FROM nginx:alpine
+COPY --from=builder /app/output /usr/share/nginx/html
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]

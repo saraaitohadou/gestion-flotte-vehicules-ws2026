@@ -50,8 +50,10 @@ function Dashboard() {
   const [liste, setListe] = useState(null)
   const [erreur, setErreur] = useState('')
 
-  useEffect(() => {
-    api.lister().then(setListe).catch((e) => setErreur(e.message))
+ useEffect(() => {
+    api.lister()
+      .then((res) => setListe(Array.isArray(res) ? res : (res?.data ?? res?.vehicules ?? [])))
+      .catch((e) => setErreur(e.message))
   }, [])
 
   if (erreur) return <Alerte>{erreur}</Alerte>

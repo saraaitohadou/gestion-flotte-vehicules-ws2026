@@ -210,6 +210,100 @@ services:
     networks:
       - flotte-network
 
+# ==========================================
+  # 7. FRONTENDS WEB (Portail + 4 Modules)
+  # ==========================================
+ # ==========================================
+  # 7. FRONTENDS WEB (Portail + 4 Modules)
+  # ==========================================
+  frontend-portail:
+    build:
+      context: ./frontend-portail
+      dockerfile: ../docker/Dockerfile.frontend
+      args:
+        VITE_UNIFIED_LOGIN_URL: "http://localhost:5174/connexion"
+        VITE_URL_VEHICULES: "http://localhost:5173/vehicules"
+        VITE_URL_CHAUFFEURS: "http://localhost:5174/chauffeurs"
+        VITE_URL_CARBURANT: "http://localhost:5175"
+        VITE_URL_ENTRETIEN: "http://localhost:5176/entretien"
+    container_name: flotte-frontend-portail
+    restart: unless-stopped
+    ports:
+      - "5170:80"
+    volumes:
+      - ./docker/nginx-spa.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - flotte-network
+
+  frontend-vehicule:
+    build:
+      context: ./module-vehicule/frontend
+      dockerfile: ../../docker/Dockerfile.frontend
+      args:
+        VITE_UNIFIED_LOGIN_URL: "http://localhost:5174/connexion"
+    container_name: flotte-frontend-vehicule
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    volumes:
+      - ./docker/nginx-spa.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - vehicule-service
+    networks:
+      - flotte-network
+
+  frontend-chauffeur:
+    build:
+      context: ./frontend-chauffeur
+      dockerfile: ../docker/Dockerfile.frontend
+    container_name: flotte-frontend-chauffeur
+    restart: unless-stopped
+    ports:
+      - "5174:80"
+    volumes:
+      - ./docker/nginx-spa.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - chauffeur-service
+      - entretien-app
+      - vehicule-service
+    networks:
+      - flotte-network
+
+  frontend-carburant:
+    build:
+      context: ./module-carburant
+      dockerfile: ../docker/Dockerfile.frontend
+      args:
+        VITE_AUTH_URL: "http://localhost:5174/connexion"
+    container_name: flotte-frontend-carburant
+    restart: unless-stopped
+    ports:
+      - "5175:80"
+    volumes:
+      - ./docker/nginx-spa.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - carburant-service
+    networks:
+      - flotte-network
+
+  frontend-entretien:
+    build:
+      context: ./frontend-entretien
+      dockerfile: ../docker/Dockerfile.frontend
+      args:
+        VITE_UNIFIED_LOGIN_URL: "http://localhost:5174/connexion"
+    container_name: flotte-frontend-entretien
+    restart: unless-stopped
+    ports:
+      - "5176:80"
+    volumes:
+      - ./docker/nginx-spa.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - entretien-app
+    networks:
+      - flotte-network
+
+      
 volumes:
   db_commune_data:
 

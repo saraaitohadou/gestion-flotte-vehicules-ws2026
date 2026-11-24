@@ -18,7 +18,8 @@ export default function Vehicules() {
       apiChauffeurs.lister().catch(() => []),
     ])
       .then(([vehs, chfs]) => {
-        setListe(vehs)
+        const listeVehs = Array.isArray(vehs) ? vehs : (vehs?.data ?? vehs?.vehicules ?? [])
+        setListe(listeVehs)
         const map = {}
         for (const c of chfs) {
           if (c.vehicule_id != null) {

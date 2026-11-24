@@ -6,8 +6,9 @@ export default function RequireAuth() {
   const { user } = useAuth();
   useEffect(() => {
     if (!user) {
-      const authUrl = import.meta.env.VITE_AUTH_URL || "http://localhost:5174/connexion?logout=1";
-      window.location.assign(authUrl);
+      const baseAuth = import.meta.env.VITE_AUTH_URL || "http://localhost:5174/connexion";
+      const sep = baseAuth.includes("?") ? "&" : "?";
+      window.location.replace(`${baseAuth}${sep}logout=1`);
     }
   }, [user]);
 

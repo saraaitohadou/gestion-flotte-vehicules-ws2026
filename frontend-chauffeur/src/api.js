@@ -3,8 +3,8 @@
 //   VITE_API_URL=https://.../api/chauffeurs   VITE_AUTH_URL=https://.../api/auth
 import { clearToken, getToken } from "./auth.js";
 
-const BASE = import.meta.env.VITE_API_URL ?? "/api/chauffeurs";
-const AUTH_BASE = import.meta.env.VITE_AUTH_URL ?? "/api/auth";
+const BASE = import.meta.env.VITE_API_URL || "/api/chauffeurs";
+const AUTH_BASE = import.meta.env.VITE_AUTH_URL || "/api/auth";
 
 export class ApiError extends Error {
   constructor(message, status, { code, fields, data } = {}) {

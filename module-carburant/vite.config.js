@@ -3,7 +3,7 @@ import { defineConfig } from "vite";
 export default defineConfig(({ command }) => {
   const carburantServiceUrl = process.env.VITE_CARBURANT_SERVICE_URL || "http://127.0.0.1:8003";
   return {
-    base: command === "serve" ? "/" : "/ui/",
+    base: "/",
     esbuild: {
       jsxInject: `import React from "react"`,
     },

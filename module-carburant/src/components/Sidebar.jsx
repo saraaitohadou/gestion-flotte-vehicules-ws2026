@@ -15,11 +15,12 @@ export default function Sidebar({ open, onClose }) {
   const [alertCount, setAlertCount] = useState(0);
   const { user, logout } = useAuth();
 
-  const handleLogout = () => {
+ const handleLogout = () => {
     logout();
     onClose();
-    const authUrl = import.meta.env.VITE_AUTH_URL || "http://localhost:5174/connexion?logout=1";
-    window.location.assign(authUrl);
+    const baseAuth = import.meta.env.VITE_AUTH_URL || "http://localhost:5174/connexion";
+    const sep = baseAuth.includes("?") ? "&" : "?";
+    window.location.replace(`${baseAuth}${sep}logout=1`);
   };
 
   useEffect(() => {

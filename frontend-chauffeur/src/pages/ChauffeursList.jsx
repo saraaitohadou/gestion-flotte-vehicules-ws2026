@@ -28,7 +28,7 @@ export default function ChauffeursList() {
   const charger = useCallback(() => {
     setLoading(true);
     api.list({ statut, categorie_permis: categorie })
-      .then((data) => { setItems(data); setError(""); })
+      .then((data) => { setItems(Array.isArray(data) ? data : (data?.items ?? [])); setError(""); })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [statut, categorie]);
