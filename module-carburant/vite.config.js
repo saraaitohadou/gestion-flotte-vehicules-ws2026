@@ -11,6 +11,7 @@ export default defineConfig(({ command }) => {
       proxy: {
         "/carburants": { target: carburantServiceUrl, changeOrigin: true },
         "/docs": { target: carburantServiceUrl, changeOrigin: true },
+        "/openapi.json": { target: carburantServiceUrl, changeOrigin: true },
       },
     },
     build: {

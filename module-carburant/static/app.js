@@ -521,7 +521,6 @@ async function vueStats() {
         <div class="card kpi"><span class="lbl">Coût total</span><span class="kv">${nombre(s.cout_total)} MAD</span></div>
         <div class="card kpi"><span class="lbl">Distance parcourue</span><span class="kv">${nombre(s.distance_km, 0)} km</span></div>
         <div class="card kpi good"><span class="lbl">Consommation moyenne</span><span class="kv" style="color:var(--accent-dark)">${nombre(s.consommation_l_100km)} <small>L/100 km</small></span></div>
-        <div class="card kpi"><span class="lbl">Coût au kilomètre</span><span class="kv">${nombre(s.cout_au_km, 3)} <small>MAD/km</small></span></div>
       </div>
       ${chrono.length === 0 ? "" : `
       <div class="card pad" style="display:flex;flex-direction:column;gap:12px">

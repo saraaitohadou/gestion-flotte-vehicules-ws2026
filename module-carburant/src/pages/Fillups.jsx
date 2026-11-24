@@ -7,6 +7,7 @@ import StatusBadge from "../components/StatusBadge";
 import Modal from "../components/Modal";
 import Toast from "../components/Toast";
 import { useAuth } from "../components/AuthContext";
+import useCarburantReferences from "../hooks/useCarburantReferences";
 
 const PAGE_SIZE = 20;
 
@@ -19,6 +20,7 @@ const csvValue = (value) => {
 export default function Fillups() {
   const { user } = useAuth();
   const chauffeur = user?.role === "CHAUFFEUR";
+  const { vehicles, drivers, vehicleLabels, driverLabels, loading: referencesLoading, error: referencesError } = useCarburantReferences();
   const [fills, setFills] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({ vehicule_id: "", chauffeur_id: "", type_carburant: "", date_debut: "", date_fin: "" });
@@ -36,8 +38,8 @@ export default function Fillups() {
   };
   useEffect(load, []);
 
-  const vehicleIds = useMemo(() => [...new Set(fills.map((fill) => fill.vehicule_id))].sort((a, b) => a - b), [fills]);
-  const chauffeurIds = useMemo(() => [...new Set(fills.map((fill) => fill.chauffeur_id).filter((id) => id != null))].sort((a, b) => a - b), [fills]);
+  const labelVehicule = (id) => vehicleLabels.get(id) ?? (referencesLoading ? "Chargement…" : "Véhicule inconnu");
+  const labelChauffeur = (id) => id == null ? "—" : driverLabels.get(id) ?? (referencesLoading ? "Chargement…" : "Chauffeur inconnu");
   const sorted = useMemo(() => fills.slice().sort((a, b) => {
     const left = a[sort.key] ?? "";
     const right = b[sort.key] ?? "";
@@ -60,7 +62,7 @@ export default function Fillups() {
   const exportCsv = () => {
     const lines = [
       ["Date","Véhicule","Chauffeur","Carburant","Litres","Prix/L","Montant (MAD)","Km","Conso","État"],
-      ...sorted.map((fill) => [fill.date_plein, fill.vehicule_id, fill.chauffeur_id ?? "", fill.type_carburant, fill.quantite_litres, fill.prix_litre, fill.montant_total, fill.kilometrage, fill.consommation_l_100km ?? "", fill.anomalie ? "Alerte" : "Normal"]),
+      ...sorted.map((fill) => [fill.date_plein, labelVehicule(fill.vehicule_id), labelChauffeur(fill.chauffeur_id), fill.type_carburant, fill.quantite_litres, fill.prix_litre, fill.montant_total, fill.kilometrage, fill.consommation_l_100km ?? "", fill.anomalie ? "Alerte" : "Normal"]),
     ];
     const blob = new Blob(["\uFEFF" + lines.map((line) => line.map(csvValue).join(";")).join("\r\n")], { type: "text/csv;charset=utf-8" });
     const link = document.createElement("a");
@@ -82,9 +84,10 @@ export default function Fillups() {
 
   return (
     <main className="page-content">
+      {referencesError && <div className="error-banner" role="alert">Impossible de charger les immatriculations ou les chauffeurs : {referencesError}</div>}
       <form className="filter-bar" onSubmit={submitFilters}>
-        <label><span>Véhicule</span><select value={filters.vehicule_id} onChange={(event) => setFilters({ ...filters, vehicule_id: event.target.value })}><option value="">Tous</option>{vehicleIds.map((id) => <option key={id} value={id}>Véhicule {id}</option>)}</select></label>
-        {!chauffeur && <label><span>Chauffeur</span><select value={filters.chauffeur_id} onChange={(event) => setFilters({ ...filters, chauffeur_id: event.target.value })}><option value="">Tous</option>{chauffeurIds.map((id) => <option key={id} value={id}>Chauffeur {id}</option>)}</select></label>}
+        <label><span>Véhicule</span><select value={filters.vehicule_id} onChange={(event) => setFilters({ ...filters, vehicule_id: event.target.value })}><option value="">Tous</option>{vehicles.map((vehicle) => <option key={vehicle.id} value={vehicle.id}>{vehicle.immatriculation}</option>)}</select></label>
+        {!chauffeur && <label><span>Chauffeur</span><select value={filters.chauffeur_id} onChange={(event) => setFilters({ ...filters, chauffeur_id: event.target.value })}><option value="">Tous</option>{drivers.map((driver) => <option key={driver.id_chauffeur} value={driver.id_chauffeur}>{driver.nom} {driver.prenom}</option>)}</select></label>}
         <label><span>Carburant</span><select value={filters.type_carburant} onChange={(event) => setFilters({ ...filters, type_carburant: event.target.value })}><option value="">Tous</option>{["diesel","essence","gpl"].map((type) => <option key={type} value={type}>{type[0].toUpperCase() + type.slice(1)}</option>)}</select></label>
         <label><span>Du</span><input type="date" value={filters.date_debut} onChange={(event) => setFilters({ ...filters, date_debut: event.target.value })} /></label>
         <label><span>Au</span><input type="date" value={filters.date_fin} onChange={(event) => setFilters({ ...filters, date_fin: event.target.value })} /></label>
@@ -109,7 +112,7 @@ export default function Fillups() {
               </tr></thead>
               <tbody>{visible.map((fill) => (
                 <tr key={fill.id}>
-                  <td>{formatDate(fill.date_plein)}</td><td className="numeric">#{fill.vehicule_id}</td>{!chauffeur && <td className="numeric">{fill.chauffeur_id ?? "—"}</td>}
+                  <td>{formatDate(fill.date_plein)}</td><td>{labelVehicule(fill.vehicule_id)}</td>{!chauffeur && <td>{labelChauffeur(fill.chauffeur_id)}</td>}
                   <td><span className={`fuel-badge fuel-${fill.type_carburant}`}>{fill.type_carburant}</span></td>
                   <td className="numeric">{formatNombre(fill.quantite_litres, 1)} L</td><td className="numeric">{formatMontant(fill.prix_litre)}</td><td className="numeric">{formatMontant(fill.montant_total)}</td>
                   <td className="numeric">{formatNombre(fill.kilometrage, 0)} km</td><td className="numeric">{fill.consommation_l_100km == null ? "—" : `${formatNombre(fill.consommation_l_100km, 1)} L/100 km`}</td>

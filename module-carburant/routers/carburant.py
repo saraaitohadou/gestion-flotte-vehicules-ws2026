@@ -116,6 +116,31 @@ def lister_chauffeurs(auth: dict = Depends(require_auth)):
     return clients.lister_chauffeurs()
 
 
+@router.get(
+    "/references/vehicules/{vehicule_id}/dernier-entretien",
+    response_model=Optional[schemas.EntretienReference],
+)
+def dernier_entretien_vehicule(
+    vehicule_id: int,
+    db: Session = Depends(get_db),
+    auth: dict = Depends(require_auth),
+):
+    if auth.get("role") == ROLE_CHAUFFEUR:
+        id_chauffeur = auth.get("id_chauffeur")
+        if id_chauffeur is None:
+            try:
+                id_chauffeur = int(auth.get("sub"))
+            except (TypeError, ValueError):
+                raise HTTPException(403, "Identifiant chauffeur absent du jeton")
+        a_un_plein = db.query(models.Carburant.id).filter(
+            models.Carburant.vehicule_id == vehicule_id,
+            models.Carburant.chauffeur_id == id_chauffeur,
+        ).first()
+        if a_un_plein is None:
+            return None
+    return clients.dernier_entretien_vehicule(vehicule_id)
+
+
 @router.get("/stats/vehicules/{vehicule_id}", response_model=schemas.StatsCarburant)
 def stats_vehicule(
     vehicule_id: int,

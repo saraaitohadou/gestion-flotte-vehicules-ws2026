@@ -135,6 +135,29 @@ def test_ut_car_08_chauffeur_facultatif(db):
     assert plein.chauffeur_id is None
 
 
+def test_dernier_entretien_ignore_les_interventions_non_terminees(monkeypatch):
+    entretiens = [
+        {"id": 3, "date_entretien": "2026-10-20", "type": "PREVENTIF", "statut": "PLANIFIE"},
+        {"id": 1, "date_entretien": "2026-10-01", "type": "CORRECTIF", "statut": "TERMINE"},
+        {"id": 2, "date_entretien": "2026-10-15", "type": "PREVENTIF", "categorie": "VIDANGE", "statut": "TERMINE"},
+    ]
+    monkeypatch.setattr(clients, "lister_entretiens_vehicule", lambda vid: entretiens)
+    assert clients.dernier_entretien_vehicule(1) == {
+        "date_entretien": "2026-10-15",
+        "type": "PREVENTIF",
+        "categorie": "VIDANGE",
+    }
+
+
+def test_dernier_entretien_absent_si_aucune_intervention_terminee(monkeypatch):
+    monkeypatch.setattr(
+        clients,
+        "lister_entretiens_vehicule",
+        lambda vid: [{"date_entretien": "2026-10-20", "type": "PREVENTIF", "statut": "PLANIFIE"}],
+    )
+    assert clients.dernier_entretien_vehicule(1) is None
+
+
 # ------------------------------------------------ RG-01 kilometrage croissant
 
 def test_ut_car_09_kilometrage_superieur_accepte(db):
