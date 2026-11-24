@@ -114,8 +114,6 @@ class VehiculeService
         $vehicule = $this->obtenir($id);
         $actuel = $vehicule->statut->value;
 
-        // Idempotence métier : demander l'état déjà atteint n'est pas un conflit.
-        // Cela permet à la saga Entretien de rejouer un PATCH après une réponse perdue.
         if ($actuel === $nouveau->value) {
             return $vehicule;
         }
@@ -124,11 +122,67 @@ class VehiculeService
             throw ServiceException::conflict("Transition impossible : $actuel vers {$nouveau->value}");
         }
 
+        // Synchroniser avec chauffeur-service si l'appel ne vient pas déjà de chauffeur-service
+        $source = strtolower((string) ($_SERVER['HTTP_X_SOURCE_SERVICE'] ?? ''));
+        if ($source !== 'chauffeur') {
+            $this->synchroniserChauffeur($id, $nouveau->value);
+        }
+
         $this->repo->updateStatut($id, $nouveau);
         $vehicule->statut = $nouveau;
         return $vehicule;
     }
 
+    private function synchroniserChauffeur(int $vehiculeId, string $statutVehicule): void
+    {
+        $baseUrl = getenv('CHAUFFEUR_SERVICE_URL');
+        if ($baseUrl === false || trim($baseUrl) === '') {
+            // En tests unitaires (PHPUnit) où CHAUFFEUR_SERVICE_URL n'est pas défini, on n'appelle pas le réseau
+            return;
+        }
+
+        $url = rtrim($baseUrl, '/') . '/api/chauffeurs/sync-vehicule/' . $vehiculeId;
+        $headers = ["Content-Type: application/json\r\n"];
+
+        $auth = (string) ($_SERVER['HTTP_AUTHORIZATION'] ?? '');
+        if ($auth !== '') {
+            $headers[] = "Authorization: $auth\r\n";
+        }
+        $apiKey = getenv('SERVICE_API_KEY');
+        if ($apiKey !== false && $apiKey !== '') {
+            $headers[] = "X-API-Key: $apiKey\r\n";
+        }
+
+        $ctx = stream_context_create([
+            'http' => [
+                'method'        => 'POST',
+                'header'        => implode('', $headers),
+                'content'       => json_encode(['statut' => $statutVehicule]),
+                'timeout'       => 4,
+                'ignore_errors' => true,
+            ],
+        ]);
+
+        $raw = @file_get_contents($url, false, $ctx);
+        $statusCode = 0;
+        if (isset($http_response_header[0]) && preg_match('#\s(\d{3})\s#', $http_response_header[0], $m)) {
+            $statusCode = (int) $m[1];
+        }
+
+        if ($statusCode === 0) {
+            throw ServiceException::conflict('Service Chauffeur injoignable pour synchroniser la mission.');
+        }
+
+        if ($statusCode === 409 || $statusCode === 422) {
+            $json = is_string($raw) ? json_decode($raw, true) : null;
+            $msg = $json['detail']['message'] ?? $json['detail'] ?? 'Synchronisation refusée par le service Chauffeur.';
+            throw ServiceException::conflict((string) $msg);
+        }
+
+        if ($statusCode >= 400) {
+            throw ServiceException::conflict("Erreur de synchronisation avec le service Chauffeur (HTTP $statusCode).");
+        }
+    }
     /** UC-V6 : vérifier la disponibilité (RG-V7) */
     public function estDisponible(int $id): bool
     {

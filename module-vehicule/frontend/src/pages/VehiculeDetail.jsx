@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { vehicules as api } from '../api'
+import { vehicules as api, chauffeurs as apiChauffeurs } from '../api'
 import { Alerte, BTN, Badge, STATUTS, SupprimerModal, inp, km } from '../ui'
 import VehiculeForm from '../VehiculeForm'
 
@@ -9,21 +9,62 @@ export default function VehiculeDetail() {
   const nav = useNavigate()
   const [v, setV] = useState(null)
   const [dispo, setDispo] = useState(null)
-  const [msg, setMsg] = useState(null) // { ok, texte }
+  const [chauffeurAffecte, setChauffeurAffecte] = useState(null)
+  const [chauffeursDispos, setChauffeursDispos] = useState([])
+  const [chauffeurChoisi, setChauffeurChoisi] = useState('')
+  const [msg, setMsg] = useState(null)
   const [statut, setStatut] = useState('')
   const [nouveauKm, setNouveauKm] = useState('')
   const [edition, setEdition] = useState(false)
   const [suppression, setSuppression] = useState(false)
 
   const charger = () =>
-    Promise.all([api.obtenir(id), api.disponibilite(id)])
-      .then(([a, b]) => { setV(a); setDispo(b.disponible) })
+    Promise.all([
+      api.obtenir(id),
+      api.disponibilite(id),
+      apiChauffeurs.lister().catch(() => []),
+      apiChauffeurs.disponibles().catch(() => []),
+    ])
+      .then(([a, b, tousChauffeurs, dispos]) => {
+        setV(a)
+        setDispo(b.disponible)
+        const affecte = tousChauffeurs.find((c) => Number(c.vehicule_id) === Number(id)) ?? null
+        setChauffeurAffecte(affecte)
+        setChauffeursDispos(dispos)
+        setChauffeurChoisi(affecte && affecte.statut === 'DISPONIBLE' ? String(affecte.id_chauffeur) : '')
+      })
       .catch((e) => setMsg({ ok: false, texte: e.message }))
+
   useEffect(() => { charger() }, [id])
 
   const agir = async (fn, texte) => {
-    try { await fn(); setMsg({ ok: true, texte }); setStatut(''); setNouveauKm(''); charger() }
-    catch (e) { setMsg({ ok: false, texte: e.message }) }
+    try {
+      await fn()
+      setMsg({ ok: true, texte })
+      setStatut('')
+      setChauffeurChoisi('')
+      setNouveauKm('')
+      charger()
+    } catch (e) {
+      setMsg({ ok: false, texte: e.message })
+    }
+  }
+
+  const appliquerChangementStatut = async () => {
+    if (statut === 'EN_MISSION') {
+      if (!chauffeurChoisi) {
+        throw new Error('Veuillez sélectionner obligatoirement un chauffeur (Nom / Permis) avant de passer en mission.')
+      }
+      await apiChauffeurs.affecter(Number(chauffeurChoisi), Number(id))
+      return
+    }
+
+    if (v.statut === 'EN_MISSION' && statut === 'DISPONIBLE' && chauffeurAffecte?.statut === 'EN_MISSION') {
+      await apiChauffeurs.cloturerMission(chauffeurAffecte.id_chauffeur)
+      return
+    }
+
+    await api.changerStatut(id, statut)
   }
 
   const supprimer = async () => {
@@ -35,6 +76,7 @@ export default function VehiculeDetail() {
 
   const options = Object.keys(STATUTS).filter((s) => s !== v.statut)
   const carte = 'rounded-xl bg-white p-5 shadow-sm'
+  const exigeChauffeur = statut === 'EN_MISSION'
 
   return (
     <>
@@ -52,13 +94,30 @@ export default function VehiculeDetail() {
 
       {msg && <Alerte ok={msg.ok}>{msg.texte}</Alerte>}
 
-      <div className={`${carte} mb-4 grid grid-cols-2 gap-4 md:grid-cols-5`}>
-        {[['Marque', v.marque], ['Modèle', v.modele], ['Année', v.annee], ['Carburant', v.typeCarburant], ['Kilométrage', km(v.kilometrage)]].map(([l, val]) => (
+      <div className={`${carte} mb-4 grid grid-cols-2 gap-4 md:grid-cols-6`}>
+        {[
+          ['Marque', v.marque],
+          ['Modèle', v.modele],
+          ['Année', v.annee],
+          ['Carburant', v.typeCarburant],
+          ['Kilométrage', km(v.kilometrage)],
+        ].map(([l, val]) => (
           <div key={l}>
             <p className="text-xs font-semibold text-slate-500">{l}</p>
             <p className="font-bold">{val}</p>
           </div>
         ))}
+        <div>
+          <p className="text-xs font-semibold text-slate-500">Chauffeur affecté</p>
+          {chauffeurAffecte ? (
+            <>
+              <p className="font-bold text-slate-900">{chauffeurAffecte.prenom} {chauffeurAffecte.nom}</p>
+              <p className="text-xs text-slate-500">Permis : {chauffeurAffecte.numero_permis}</p>
+            </>
+          ) : (
+            <p className="text-sm italic text-slate-400">Aucun chauffeur</p>
+          )}
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -79,9 +138,38 @@ export default function VehiculeDetail() {
             <option value="">Choisir un statut</option>
             {options.map((s) => <option key={s}>{s}</option>)}
           </select>
+
+          {exigeChauffeur && (
+            <div className="mt-3">
+              <label className="mb-1 block text-xs font-semibold text-slate-700">
+                Chauffeur obligatoire (Nom et N° Permis) *
+              </label>
+              <select
+                className={inp()}
+                value={chauffeurChoisi}
+                onChange={(e) => setChauffeurChoisi(e.target.value)}
+              >
+                <option value="">-- Sélectionner un chauffeur disponible --</option>
+                {chauffeursDispos.map((c) => (
+                  <option key={c.id_chauffeur} value={c.id_chauffeur}>
+                    {c.prenom} {c.nom} — Permis {c.numero_permis} ({c.categorie_permis})
+                  </option>
+                ))}
+              </select>
+              {chauffeursDispos.length === 0 && (
+                <p className="mt-1 text-xs text-red-600">Aucun chauffeur disponible avec permis valide.</p>
+              )}
+            </div>
+          )}
+
           <p className="my-2 text-xs text-slate-500">{options.join(', ')}</p>
-          <button className={BTN.primary} disabled={!statut}
-            onClick={() => agir(() => api.changerStatut(id, statut), `Statut changé en ${statut}`)}>Appliquer</button>
+          <button
+            className={BTN.primary}
+            disabled={!statut || (exigeChauffeur && !chauffeurChoisi)}
+            onClick={() => agir(appliquerChangementStatut, `Statut changé en ${statut}`)}
+          >
+            Appliquer
+          </button>
         </div>
 
         <div className={carte}>

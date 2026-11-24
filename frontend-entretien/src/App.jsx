@@ -2,9 +2,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import Layout from "./components/Layout.jsx";
 import RequireAuth from "./components/RequireAuth.jsx";
 import RequireRole from "./components/RequireRole.jsx";
-import Login from "./pages/Login.jsx";
 import Home from "./pages/Home.jsx";
-import Placeholder from "./pages/Placeholder.jsx";
 import EntretienDetail from "./pages/EntretienDetail.jsx";
 import DeclarerPanne from "./pages/DeclarerPanne.jsx";
 import DeclarationsList from "./pages/DeclarationsList.jsx";
@@ -15,10 +13,18 @@ import EntretiensList from "./pages/EntretiensList.jsx";
 import EntretienForm from "./pages/EntretienForm.jsx";
 import { STAFF, DECLARANTS, ROLES } from "./roles.js";
 
+const UNIFIED_LOGIN_URL =
+  import.meta.env.VITE_UNIFIED_LOGIN_URL ?? "http://localhost:5174/connexion";
+
+function RedirectToUnifiedLogin() {
+  window.location.replace(`${UNIFIED_LOGIN_URL}?logout=1`);
+  return null;
+}
+
 export default function App() {
   return (
     <Routes>
-      <Route path="/connexion" element={<Login />} />
+      <Route path="/connexion" element={<RedirectToUnifiedLogin />} />
       <Route element={<RequireAuth />}>
         <Route element={<Layout />}>
           <Route path="/" element={<Home />} />

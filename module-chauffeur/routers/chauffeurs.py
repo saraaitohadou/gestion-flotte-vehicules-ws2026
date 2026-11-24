@@ -663,5 +663,60 @@ def supprimer_chauffeur(
             },
         )
 
+
+
     chauffeur.statut = models.StatutChauffeur.INACTIF
     db.commit()
+
+@router.post("/sync-vehicule/{vehicule_id}")
+def synchroniser_chauffeur_depuis_vehicule(
+    vehicule_id: int,
+    payload: dict,
+    db: Session = Depends(get_db),
+    _admin: dict = Depends(auth.require_admin),
+):
+    """Synchronise le chauffeur affecté lorsque le statut d'un véhicule change."""
+    statut_vehicule = str(payload.get("statut", "")).upper().strip()
+    chauffeur = (
+        db.query(models.Chauffeur)
+        .filter(
+            models.Chauffeur.vehicule_id == vehicule_id,
+            models.Chauffeur.statut != models.StatutChauffeur.INACTIF,
+        )
+        .first()
+    )
+
+    if statut_vehicule == "EN_MISSION":
+        if chauffeur is None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "erreur": "CHAUFFEUR_NON_AFFECTE",
+                    "message": f"Impossible de passer le véhicule #{vehicule_id} en mission : aucun chauffeur n'est affecté.",
+                },
+            )
+        if chauffeur.statut == models.StatutChauffeur.EN_CONGE:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "erreur": "CHAUFFEUR_EN_CONGE",
+                    "message": f"Le chauffeur #{chauffeur.id_chauffeur} affecté à ce véhicule est en congé.",
+                },
+            )
+        if chauffeur.statut == models.StatutChauffeur.DISPONIBLE:
+            regles.verifier_permis_valide(chauffeur.date_expiration_permis, "EN_MISSION")
+            chauffeur.statut = models.StatutChauffeur.EN_MISSION
+            db.commit()
+            db.refresh(chauffeur)
+        return {"synced": True, "chauffeur_id": chauffeur.id_chauffeur, "statut": chauffeur.statut.value}
+
+    if statut_vehicule in ("DISPONIBLE", "EN_MAINTENANCE", "HORS_SERVICE"):
+        if chauffeur is not None:
+            if chauffeur.statut == models.StatutChauffeur.EN_MISSION:
+                chauffeur.statut = models.StatutChauffeur.DISPONIBLE
+            chauffeur.vehicule_id = None
+            db.commit()
+            db.refresh(chauffeur)
+            return {"synced": True, "chauffeur_id": chauffeur.id_chauffeur, "statut": chauffeur.statut.value}
+
+    return {"synced": False}

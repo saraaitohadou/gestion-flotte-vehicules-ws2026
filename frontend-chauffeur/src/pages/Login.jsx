@@ -1,7 +1,7 @@
-import { useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../components/AuthContext.jsx";
-import { getToken, setToken } from "../auth.js";
+import { clearToken, getToken, setToken } from "../auth.js";
 import { api } from "../api.js";
 
 const PORTAIL_ADMIN_URL = "http://localhost:5170";
@@ -14,10 +14,13 @@ const ONGLETS = [
 ];
 
 export default function Login() {
-  const { user, login } = useAuth();
+  const { user, login, logout } = useAuth();
   const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const isLogout = params.get("logout") === "1";
+  const redirectParam = params.get("redirect");
 
-  const [role, setRole] = useState("chauffeur"); // "chauffeur" | "gestionnaire" | "admin"
+  const [role, setRole] = useState("chauffeur");
   const [cin, setCin] = useState("");
   const [numeroPermis, setNumeroPermis] = useState("");
   const [username, setUsername] = useState("");
@@ -27,8 +30,20 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
 
+  // Si on arrive depuis une déconnexion (?logout=1), on purge immédiatement la session locale de 5174
+  useEffect(() => {
+    if (isLogout) {
+      clearToken();
+      localStorage.removeItem("chauffeur_token");
+      localStorage.removeItem("chauffeur_role");
+      if (user) logout();
+      setSuccessMsg("Vous avez été déconnecté.");
+      window.history.replaceState({}, document.title, "/connexion");
+    }
+  }, [isLogout, user, logout]);
+
   const destination = location.state?.from || "/chauffeurs";
-  if (user && !redirecting) return <Navigate to={destination} replace />;
+  if (user && !redirecting && !isLogout) return <Navigate to={destination} replace />;
 
   const handleRoleChange = (newRole) => {
     setRole(newRole);
@@ -59,8 +74,8 @@ export default function Login() {
         setSuccessMsg("Connexion réussie ! Redirection vers l'Espace Chauffeur...");
 
         setTimeout(() => {
-          window.location.href = "http://localhost:8002/espace-chauffeur";
-        }, 500);
+          window.location.href = `http://localhost:8002/espace-chauffeur#token=${encodeURIComponent(data.access_token)}`;
+        }, 400);
       } catch (err) {
         if (err.status === 403) {
           setError("Accès refusé : votre compte chauffeur est inactif. Veuillez contacter l'administrateur.");
@@ -87,9 +102,11 @@ export default function Login() {
           throw new Error("Réponse d'authentification invalide.");
         }
         setToken(data.access_token);
-        setSuccessMsg("Connexion gestionnaire réussie ! Redirection vers Maintenance & Entretien...");
+        const cible = redirectParam || ENTRETIEN_FRONT_URL;
+        const sep = cible.includes("?") ? "&" : "?";
+        setSuccessMsg("Connexion gestionnaire réussie ! Redirection...");
         setTimeout(() => {
-          window.location.href = `${ENTRETIEN_FRONT_URL}?token=${encodeURIComponent(data.access_token)}`;
+          window.location.href = `${cible}${sep}token=${encodeURIComponent(data.access_token)}`;
         }, 300);
       } catch (err) {
         setRedirecting(false);
@@ -100,7 +117,6 @@ export default function Login() {
       }
 
     } else {
-      // Connexion Administrateur -> Portail Global (4 services)
       if (!username.trim() || !password) {
         setError("Veuillez saisir votre nom d'utilisateur et votre mot de passe administrateur.");
         return;
@@ -111,9 +127,11 @@ export default function Login() {
       try {
         await login(username.trim(), password);
         const token = getToken();
-        setSuccessMsg("Connexion administrateur réussie ! Redirection vers le Portail Global...");
+        const cible = redirectParam || PORTAIL_ADMIN_URL;
+        const sep = cible.includes("?") ? "&" : "?";
+        setSuccessMsg("Connexion administrateur réussie ! Redirection...");
         setTimeout(() => {
-          window.location.href = `${PORTAIL_ADMIN_URL}?token=${encodeURIComponent(token)}`;
+          window.location.href = `${cible}${sep}token=${encodeURIComponent(token)}`;
         }, 300);
       } catch (err) {
         setRedirecting(false);
@@ -151,7 +169,6 @@ export default function Login() {
         <h1>Connexion</h1>
         <p className="muted">Choisissez votre rôle pour accéder à votre espace dédié.</p>
 
-        {/* Sélecteur des 3 rôles */}
         <div className="role-selector" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "6px" }}>
           {ONGLETS.map((o) => (
             <button

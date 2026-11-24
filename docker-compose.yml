@@ -71,6 +71,7 @@ services:
       DB_NAME: ${DB_NAME:-gestion_flotte}
       DB_USER: ${DB_USER:-root}
       DB_PASS: ${DB_ROOT_PASSWORD}
+      CHAUFFEUR_SERVICE_URL: http://chauffeur-service:8000
     depends_on:
       db-commune:
         condition: service_healthy

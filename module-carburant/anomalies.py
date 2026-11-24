@@ -35,7 +35,8 @@ def recalculer_vehicule(db: Session, vehicule_id: int) -> None:
         .all()
     )
 
-    precedent = None
+    dernier_plein_complet_km = None
+    litres_depuis_dernier_complet = 0.0
     historique = []  # consommations deja calculees, pour la moyenne
 
     for plein in pleins:
@@ -43,10 +44,15 @@ def recalculer_vehicule(db: Session, vehicule_id: int) -> None:
         plein.anomalie = False
         plein.message_anomalie = None
 
-        if precedent is not None and plein.plein_complet:
-            distance = plein.kilometrage - precedent.kilometrage
+        if not plein.plein_complet:
+            litres_depuis_dernier_complet += plein.quantite_litres
+            continue
+
+        if dernier_plein_complet_km is not None:
+            distance = plein.kilometrage - dernier_plein_complet_km
             if distance > 0:
-                conso = round(plein.quantite_litres / distance * 100, 2)
+                litres_calcules = litres_depuis_dernier_complet + plein.quantite_litres
+                conso = round(litres_calcules / distance * 100, 2)
                 plein.consommation_l_100km = conso
 
                 if len(historique) >= HISTORIQUE_MIN:
@@ -61,6 +67,7 @@ def recalculer_vehicule(db: Session, vehicule_id: int) -> None:
                         )
                 historique.append(conso)
 
-        precedent = plein
+        dernier_plein_complet_km = plein.kilometrage
+        litres_depuis_dernier_complet = 0.0
 
     db.commit()

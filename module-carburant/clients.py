@@ -1,5 +1,6 @@
 """Appels HTTP vers les services Vehicule et Chauffeur."""
 import os
+from typing import Optional
 
 import httpx
 from fastapi import HTTPException
@@ -10,7 +11,9 @@ TIMEOUT = float(os.getenv("SERVICE_TIMEOUT", "3"))
 
 # Routes reelles des autres modules (a ajuster si l'equipe les change)
 CHEMIN_VEHICULE = "/vehicules/{id}"
+CHEMIN_VEHICULES = "/vehicules"
 CHEMIN_CHAUFFEUR = "/api/chauffeurs/{id}"
+CHEMIN_CHAUFFEURS = "/api/chauffeurs"
 
 
 def _en_tetes() -> dict:
@@ -36,5 +39,86 @@ def verifier_vehicule(vehicule_id: int) -> None:
     _verifier(VEHICULE_URL, CHEMIN_VEHICULE, vehicule_id, "Vehicule")
 
 
+def lister_vehicules() -> list[dict[str, int | str]]:
+    try:
+        reponse = httpx.get(
+            VEHICULE_URL + CHEMIN_VEHICULES,
+            headers=_en_tetes(),
+            timeout=TIMEOUT,
+        )
+    except httpx.HTTPError:
+        raise HTTPException(503, "Service Vehicule indisponible")
+    if reponse.status_code >= 400:
+        raise HTTPException(503, f"Service Vehicule a repondu {reponse.status_code}")
+    try:
+        vehicules = reponse.json()
+        if not isinstance(vehicules, list) or any(
+            not isinstance(item, dict)
+            or not isinstance(item.get("id"), int)
+            or not isinstance(item.get("immatriculation"), str)
+            for item in vehicules
+        ):
+            raise ValueError
+        return [
+            {"id": item["id"], "immatriculation": item["immatriculation"]}
+            for item in vehicules
+        ]
+    except (TypeError, ValueError):
+        raise HTTPException(503, "Reponse du service Vehicule invalide")
+
+
 def verifier_chauffeur(chauffeur_id: int) -> None:
     _verifier(CHAUFFEUR_URL, CHEMIN_CHAUFFEUR, chauffeur_id, "Chauffeur")
+
+
+def lister_chauffeurs() -> list[dict[str, int | str]]:
+    try:
+        reponse = httpx.get(
+            CHAUFFEUR_URL + CHEMIN_CHAUFFEURS,
+            params={"limit": 200},
+            headers=_en_tetes(),
+            timeout=TIMEOUT,
+        )
+    except httpx.HTTPError:
+        raise HTTPException(503, "Service Chauffeur indisponible")
+    if reponse.status_code >= 400:
+        raise HTTPException(503, f"Service Chauffeur a repondu {reponse.status_code}")
+    try:
+        chauffeurs = reponse.json()
+        if not isinstance(chauffeurs, list) or any(
+            not isinstance(item, dict)
+            or not isinstance(item.get("id_chauffeur"), int)
+            or not isinstance(item.get("nom"), str)
+            or not isinstance(item.get("prenom"), str)
+            for item in chauffeurs
+        ):
+            raise ValueError
+        return [
+            {
+                "id_chauffeur": item["id_chauffeur"],
+                "nom": item["nom"],
+                "prenom": item["prenom"],
+            }
+            for item in chauffeurs
+        ]
+    except (TypeError, ValueError):
+        raise HTTPException(503, "Reponse du service Chauffeur invalide")
+
+
+def obtenir_vehicule_affecte(chauffeur_id: int) -> Optional[int]:
+    """Retourne vehicule_id affecte au chauffeur via le service Chauffeur."""
+    url = CHAUFFEUR_URL + CHEMIN_CHAUFFEUR.format(id=chauffeur_id)
+    try:
+        reponse = httpx.get(url, headers=_en_tetes(), timeout=TIMEOUT)
+    except httpx.HTTPError:
+        raise HTTPException(503, "Service Chauffeur indisponible")
+    if reponse.status_code == 404:
+        raise HTTPException(404, f"Chauffeur {chauffeur_id} introuvable")
+    if reponse.status_code >= 400:
+        raise HTTPException(503, f"Service Chauffeur a repondu {reponse.status_code}")
+    try:
+        payload = reponse.json()
+        vehicule_id = payload.get("vehicule_id")
+        return int(vehicule_id) if vehicule_id is not None else None
+    except (TypeError, ValueError):
+        raise HTTPException(503, "Reponse du service Chauffeur invalide")

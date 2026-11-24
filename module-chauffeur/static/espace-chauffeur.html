@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
@@ -420,6 +420,7 @@
     <script>
         const API_BASE = '/espace-chauffeur';
         let currentChauffeur = null;
+        let token = null;
 
         document.addEventListener('DOMContentLoaded', () => {
             const today = new Date().toISOString().split('T')[0];
@@ -428,16 +429,17 @@
             if (cDate) cDate.value = today;
             if (eDate) eDate.value = today;
 
-            const token = localStorage.getItem('chauffeur_token');
+            const t = new URLSearchParams(location.hash.slice(1)).get('token');
+            if (t) { localStorage.setItem('chauffeur_token', t); history.replaceState(null, '', location.pathname + location.search); }
+            token = localStorage.getItem('chauffeur_token');
             if (!token) {
-                window.location.href = '/connexion';
+                window.location.href = 'http://localhost:5174/connexion?logout=1';
                 return;
             }
             chargerProfil();
         });
 
         function getAuthHeaders() {
-            const token = localStorage.getItem('chauffeur_token');
             return {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json',
@@ -459,7 +461,7 @@
             localStorage.removeItem('chauffeur_token');
             localStorage.removeItem('chauffeur_role');
             currentChauffeur = null;
-            window.location.href = '/connexion';
+            window.location.href = 'http://localhost:5174/connexion?logout=1';
         }
 
         async function chargerProfil() {
@@ -699,3 +701,4 @@
     </script>
 </body>
 </html>
+

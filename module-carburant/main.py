@@ -46,6 +46,26 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+
+@app.middleware("http")
+async def accepte_corps_carburant_plat(request, call_next):
+    """Accepte l'ancien format { "data": {...} } pour les clients existants."""
+    if request.method in ("POST", "PATCH") and request.url.path.startswith("/carburants"):
+        body = await request.body()
+        if body:
+            try:
+                import json
+                parsed = json.loads(body)
+                if isinstance(parsed, dict) and set(parsed) == {"data"} and isinstance(parsed["data"], dict):
+                    body = json.dumps(parsed["data"]).encode()
+                    request._body = body
+                    async def receive():
+                        return {"type": "http.request", "body": body, "more_body": False}
+                    request._receive = receive
+            except Exception:
+                pass
+    return await call_next(request)
+
 app.include_router(carburant.router)
 
 
@@ -106,15 +126,15 @@ class FrontendSansCache(StaticFiles):
 
 
 # Compatibilite avec les anciennes ressources statiques.
-# Elles ne sont pas chargees par le frontend React construit ci-dessous.
+# Elles ne sont pas chargees par le frontend React construit.
 @app.get("/ui/app.js", include_in_schema=False)
 async def ancienne_ressource_app_js():
-    return FileResponse(os.path.join(os.path.dirname(__file__), "static", "app.js"))
+    return FileResponse(os.path.join(BASE_DIR, "static", "app.js"))
 
 
 @app.get("/ui/style.css", include_in_schema=False)
 async def ancienne_ressource_style_css():
-    return FileResponse(os.path.join(os.path.dirname(__file__), "static", "style.css"))
+    return FileResponse(os.path.join(BASE_DIR, "static", "style.css"))
 
 
 # Interface web servie par le service lui-meme : http://127.0.0.1:8000/ui/

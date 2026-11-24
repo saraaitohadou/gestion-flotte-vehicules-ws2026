@@ -1,10 +1,18 @@
-import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { Outlet } from "react-router-dom";
 import { useAuth } from "./AuthContext.jsx";
 
-// Protège toutes les pages : sans session, redirection vers /connexion
+const UNIFIED_LOGIN_URL =
+  import.meta.env.VITE_UNIFIED_LOGIN_URL ?? "http://localhost:5174/connexion";
+
 export default function RequireAuth() {
   const { user } = useAuth();
-  const location = useLocation();
-  if (!user) return <Navigate to="/connexion" replace state={{ from: location.pathname + location.search }} />;
+
+  if (!user) {
+    window.location.replace(
+      `${UNIFIED_LOGIN_URL}?redirect=${encodeURIComponent(window.location.href)}`
+    );
+    return null;
+  }
+
   return <Outlet />;
 }
