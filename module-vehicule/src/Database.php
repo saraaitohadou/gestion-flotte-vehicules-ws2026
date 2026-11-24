@@ -11,8 +11,8 @@ class Database
     {
         if (self::$pdo === null) {
             $host = getenv('DB_HOST') ?: '127.0.0.1';
-            $port = getenv('DB_PORT') ?: '3307';
-            $name = getenv('DB_NAME') ?: 'vehicule_db';
+            $port = getenv('DB_PORT') ?: '3306';
+            $name = getenv('DB_NAME') ?: 'gestion_flotte';
             $user = getenv('DB_USER') ?: 'root';
             $pass = getenv('DB_PASS') ?: '';
 

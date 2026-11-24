@@ -15,10 +15,10 @@ services:
       QUEUE_CONNECTION: sync
       DB_CONNECTION: mysql
       DB_HOST: host.docker.internal
-      DB_PORT: "${DB_HOST_PORT:-3306}"
+      DB_PORT: "${DB_HOST_PORT:-3307}"
       DB_DATABASE: ${ENTRETIEN_DB_NAME:-gestion_flotte}
       DB_USERNAME: root
-      DB_PASSWORD: "${DB_ROOT_PASSWORD:-changez_moi}"
+      DB_PASSWORD: "${DB_ROOT_PASSWORD:-rootpassword}"
       VEHICULE_CHECK: "true"
       VEHICULE_SERVICE_URL: "http://vehicule-mock:8002"
       CHAUFFEUR_SERVICE_URL: "http://chauffeur-mock:8003"

@@ -18,3 +18,4 @@ cryptography
 httpx==0.28.1
 python-dotenv
 python-jose[cryptography]
+pytest

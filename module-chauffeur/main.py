@@ -10,8 +10,8 @@ from sqlalchemy.exc import OperationalError
 
 import auth
 import clients
-import models
-from database import engine
+import models  # noqa: F401  (modele SQLAlchemy pour le repli SQLite des tests)
+from migrations import appliquer_migrations
 from routers import chauffeurs, espace_chauffeur
 
 
@@ -19,7 +19,7 @@ from routers import chauffeurs, espace_chauffeur
 async def lifespan(app: FastAPI):
     for _ in range(10):
         try:
-            models.Base.metadata.create_all(bind=engine)
+            appliquer_migrations()
             break
         except OperationalError:
             time.sleep(3)

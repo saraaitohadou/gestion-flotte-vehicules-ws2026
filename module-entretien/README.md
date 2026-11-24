@@ -36,13 +36,19 @@ vaut `http://vehicule-service:80` et `VEHICULE_API_PREFIX=/api`. La surcharge
 ### Base de données partagée — choix architectural assumé
 
 Le service Entretien utilise **la base commune `gestion_flotte`**, la même que les modules
-Véhicule et Chauffeur (`ENTRETIEN_DB_NAME=gestion_flotte` dans la stack racine). Ce n'est ni un
-fallback provisoire ni un oubli : c'est un **choix architectural validé** pour les trois microservices.
+Véhicule, Chauffeur et Carburant (`ENTRETIEN_DB_NAME=gestion_flotte` dans la stack racine).
+Ce n'est ni un fallback provisoire ni un oubli : c'est un **choix architectural validé** pour
+les quatre microservices.
 
 - **Aucune base `entretien_db` ne doit être créée.** Le script `db/init/02-entretien.sql` a été
   supprimé et aucune configuration du dépôt ne référence cette base.
-- Les tables `entretiens`, `alertes`, `declarations_panne`, `integrations_outbox` coexistent avec
-  `vehicules`, `chauffeurs`, etc. dans le même schéma et le même volume MySQL.
+- Les tables `entretiens`, `entretien_historique`, `alertes`, `declarations_panne`,
+  `integrations_outbox`, `integrations_idempotence` et `gestionnaires` coexistent avec
+  `vehicules`, `chauffeurs` et `carburants` dans le même schéma et le même volume MySQL.
+- Il n'existe pas de table physique `echeances` : les échéances sont calculées depuis les
+  colonnes `date_prochaine_echeance` / `km_prochaine_echeance` de `entretiens` et matérialisées
+  dans `alertes` (voir `EcheanceService`). De même, les affectations des chauffeurs sont
+  stockées dans `chauffeurs.vehicule_id`. Aucune table vide dupliquée n'est créée.
 - `php artisan migrate` au démarrage est idempotent : il ne recrée ni ne remplace les tables
   existantes.
 - Ce choix **diverge volontairement** de la p. 8 du cahier des charges (« une base par service »).

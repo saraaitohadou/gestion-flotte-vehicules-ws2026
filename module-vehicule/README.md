@@ -6,25 +6,25 @@ Web service REST (PHP 8.4 + MySQL 8) qui gère les véhicules de la flotte : cr�
 
 Prérequis : Docker Desktop.
 
-```
-Copier le fichier .env.example situé à la racine du projet (gestion-flotte-vehicules-ws2026) en .env
+Le module utilise **la base commune `gestion_flotte`** du stack racine. Il ne démarre
+aucune base dédiée (plus de `vehicule_db`, plus de volume `vehicule_db_data`).
 
-docker compose up -d --build
-```
+1. Depuis la racine du dépôt : `docker compose up -d db-commune`
+2. Puis, depuis ce dossier : `docker compose up -d --build`
 
-- API : http://127.0.0.1:8090
-- Base MySQL (depuis le PC) : port 3308
-- Arrêter : `docker compose down` (ajouter `-v` pour effacer les données)
+- API : http://127.0.0.1:8001
+- Base MySQL commune (depuis le PC) : port `DB_HOST_PORT` du stack racine (3307 par défaut)
+- Arrêter : `docker compose down` (sans `-v` : les données restent dans `flotte_db_commune_data`)
 
 ## Variables d'environnement
 
 | Variable | Rôle | Valeur dans Docker |
 |---|---|---|
-| DB_HOST | Hôte de la base | vehicule-db |
+| DB_HOST | Hôte de la base commune | db-commune |
 | DB_PORT | Port de la base | 3306 |
-| DB_NAME | Nom de la base | vehicule_db |
+| DB_NAME | Nom de la base | gestion_flotte |
 | DB_USER | Utilisateur | root |
-| DB_PASS | Mot de passe | défini dans `.env` |
+| DB_PASS | Mot de passe | défini dans `.env` (identique au stack racine) |
 
 ## Modèle de données
 
@@ -108,9 +108,9 @@ vehicule-service/
 ├── src/Repository/         accès à la base
 ├── src/Models/             Vehicule, StatutVehicule
 ├── src/Exceptions/         erreurs métier (404, 409, 422)
-├── db/init.sql             création de la table et données de test
+├── db/init.sql             legacy neutralisé (aucune base dédiée)
 ├── Dockerfile
-└── docker-compose.yml
+└── docker-compose.yml      utilise db-commune / gestion_flotte du stack racine
 ```
 
 ## Tests
