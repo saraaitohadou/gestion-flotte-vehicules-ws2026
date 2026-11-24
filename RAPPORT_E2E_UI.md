@@ -3,7 +3,7 @@
 **Date :** 24/11/2026  
 **Branche :** `feat/front-login` (après fusion de `origin/main`, commit de merge `7c8cd91`)  
 **Base de données :** `gestion_flotte` (base commune, MySQL dans `db-commune`)  
-**Comptes utilisés :** `admin` / `200383` (portail central `http://localhost:5174/connexion`)  
+**Comptes utilisés :** `admin` / `<mot-de-passe-masque>` (portail central `http://localhost:5174/connexion`)  
 **Interfaces testées :**
 
 | Module | URL |
