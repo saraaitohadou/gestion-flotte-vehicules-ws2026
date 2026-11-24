@@ -11,6 +11,8 @@ from sqlalchemy.exc import OperationalError
 import models  # noqa: F401  (enregistre les tables dans Base.metadata)
 from routers import carburant
 
+BASE_DIR = os.path.dirname(__file__)
+
 
 def appliquer_migrations() -> None:
     """Applique les migrations Alembic versionnees (jamais de create_all en production)."""
@@ -115,14 +117,14 @@ async def ancienne_ressource_style_css():
     return FileResponse(os.path.join(os.path.dirname(__file__), "static", "style.css"))
 
 
-# Interface web (HTML/CSS/JS) servie par le service lui-meme : http://127.0.0.1:8000/ui/
-# Le build React (`frontend-dist`) est optionnel : on retombe sur l'interface statique
-# historique (`static/`) au lieu de faire crasher le service quand il est absent.
-_base_dir = os.path.dirname(os.path.abspath(__file__))
-_dist_dir = os.path.join(_base_dir, "frontend-dist")
-_static_dir = os.path.join(_base_dir, "static")
-_ui_dir = _dist_dir if os.path.isdir(_dist_dir) and os.listdir(_dist_dir) else _static_dir
-app.mount("/ui", FrontendSansCache(directory=_ui_dir, html=True), name="ui")
+# Interface web servie par le service lui-meme : http://127.0.0.1:8000/ui/
+# On utilise l'interface React compilee (frontend-dist) si elle est presente
+# et non vide, sinon l'interface HTML/JS simple (static), toujours dans le depot.
+DOSSIER_UI = os.path.join(BASE_DIR, "frontend-dist")
+if not (os.path.isdir(DOSSIER_UI) and os.listdir(DOSSIER_UI)):
+    DOSSIER_UI = os.path.join(BASE_DIR, "static")
+
+app.mount("/ui", FrontendSansCache(directory=DOSSIER_UI, html=True), name="ui")
 
 
 @app.get("/", tags=["Sante"])
