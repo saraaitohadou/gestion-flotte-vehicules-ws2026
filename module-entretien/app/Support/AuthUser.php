@@ -64,16 +64,6 @@ final class AuthUser
         };
     }
 
-    public function estAdmin(): bool
-    {
-        return $this->role === self::ADMIN;
-    }
-
-    public function estGestionnaire(): bool
-    {
-        return $this->role === self::GESTIONNAIRE;
-    }
-
     public function estChauffeur(): bool
     {
         return $this->role === self::CHAUFFEUR;

@@ -11,6 +11,7 @@ import EntretienDashboard from "./pages/EntretienDashboard.jsx";
 import Gestionnaires from "./pages/Gestionnaires.jsx";
 import EntretiensList from "./pages/EntretiensList.jsx";
 import EntretienForm from "./pages/EntretienForm.jsx";
+import Vehicules from "./pages/Vehicules.jsx";
 import { STAFF, DECLARANTS, ROLES } from "./roles.js";
 
 const UNIFIED_LOGIN_URL =
@@ -32,6 +33,7 @@ export default function App() {
           <Route element={<RequireRole roles={STAFF} />}>
             <Route path="/entretien" element={<EntretienDashboard />} />
             <Route path="/entretien/liste" element={<EntretiensList />} />
+            <Route path="/entretien/vehicules" element={<Vehicules />} />
             <Route path="/entretien/nouveau" element={<EntretienForm />} />
             <Route path="/entretien/:id" element={<EntretienDetail />} />
             <Route path="/entretien/:id/modifier" element={<EntretienForm />} />

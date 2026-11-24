@@ -15,6 +15,22 @@ export const CATEGORIES = {
   CORRECTIF: ["PANNE", "REPARATION"],
 };
 
+// Miroir de VehiculeClient::STATUTS_INTERDITS_ENTRETIEN (cote API Entretien).
+// Un vehicule DISPONIBLE ou EN_MAINTENANCE peut recevoir un entretien.
+export const STATUTS_VEHICULE_INTERDITS_ENTRETIEN = ["HORS_SERVICE", "ARCHIVE", "EN_MISSION"];
+
+export const peutCreerEntretien = (vehicule) =>
+  Boolean(vehicule) &&
+  !STATUTS_VEHICULE_INTERDITS_ENTRETIEN.includes(String(vehicule.statut ?? "").toUpperCase());
+
+export const VEHICULE_BADGES = {
+  DISPONIBLE: { label: "Disponible", tone: "ok" },
+  EN_MAINTENANCE: { label: "En maintenance", tone: "info" },
+  EN_MISSION: { label: "En mission", tone: "warn" },
+  HORS_SERVICE: { label: "Hors service", tone: "bad" },
+  ARCHIVE: { label: "Archive", tone: "mute" },
+};
+
 export const formatDate = (iso) =>
   iso ? new Date(`${iso}T00:00:00`).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" }) : "-";
 

@@ -1,13 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api, ARCHIVES } from "../api.js";
-import { useAuth } from "../components/AuthContext.jsx";
 import { StatusBadge, TypeBadge } from "../components/Badges.jsx";
-import { ROLES } from "../roles.js";
 import { STATUTS, TYPES, formatDate, formatKm, formatMoney } from "../utils.js";
 
 export default function EntretiensList() {
-  const { user } = useAuth();
   const [params, setParams] = useSearchParams();
   const [rows, setRows] = useState([]);
   const [meta, setMeta] = useState(null);
