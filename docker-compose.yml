@@ -99,6 +99,7 @@ services:
       ADMIN_USERNAME: ${ADMIN_USERNAME}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       VEHICULE_SERVICE_URL: http://vehicule-service
+      CARBURANT_SERVICE_URL: http://carburant-service:8000
     depends_on:
       db-commune:
         condition: service_healthy
