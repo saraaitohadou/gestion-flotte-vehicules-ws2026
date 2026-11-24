@@ -1,8 +1,0 @@
--- Fichier conserve pour compatibilite des anciens deploiements.
--- Il ne doit PLUS creer de base vehicule_db : les quatre services utilisent
--- uniquement gestion_flotte, initialisee a la racine par :
---   db/init/01-vehicule.sql -> db/migrations/001_create_vehicules.sql
---   db/init/03-chauffeurs.sql -> module-chauffeur/db/migrations/001_create_chauffeurs.sql
---
--- Ce fichier est intentionnellement sans instruction SQL : le container MySQL
--- du stack racine monte db/init/ et db/migrations/, pas ce dossier.

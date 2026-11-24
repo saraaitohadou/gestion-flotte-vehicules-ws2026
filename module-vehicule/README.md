@@ -108,11 +108,10 @@ vehicule-service/
 ├── src/Repository/         accès à la base
 ├── src/Models/             Vehicule, StatutVehicule
 ├── src/Exceptions/         erreurs métier (404, 409, 422)
-├── db/init.sql             legacy neutralisé (aucune base dédiée)
 ├── Dockerfile
 └── docker-compose.yml      utilise db-commune / gestion_flotte du stack racine
 ```
 
 ## Tests
 
-Avec le service lancé : `powershell -ExecutionPolicy Bypass -File .\test_api.ps1` (15 cas de succès et d'erreur).
+Suite automatisée : `vendor/bin/phpunit -c phpunit.xml` (23 tests de service et 5 tests d'idempotence).

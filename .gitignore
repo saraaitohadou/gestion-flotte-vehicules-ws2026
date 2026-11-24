@@ -32,3 +32,6 @@ DAT_Gestion_Flotte_WS2026_v2.docx
 
 # Artefacts de tests générés
 .coverage
+.pytest_cache/
+**/.phpunit.result.cache
+**/rapport_tests_unitaires*.xml
