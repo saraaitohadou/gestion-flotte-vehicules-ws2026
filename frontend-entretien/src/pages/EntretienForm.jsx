@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api, messageErreur } from "../api.js";
 import { useToast } from "../components/Toast.jsx";
 import { CATEGORIES, TYPES } from "../utils.js";
@@ -9,11 +9,17 @@ const VIDE = { vehicule_id: "", type: "PREVENTIF", categorie: "VIDANGE", descrip
 
 export default function EntretienForm() {
   const { id } = useParams();
+  const [params] = useSearchParams();
   const edition = Boolean(id);
   const navigate = useNavigate();
   const toast = useToast();
 
-  const [form, setForm] = useState(VIDE);
+  // Arrivee depuis la liste des vehicules : /entretien/nouveau?vehicule_id=..&source=vehicules
+  const vehiculePreselectionne = !edition ? String(params.get("vehicule_id") ?? "") : "";
+  const depuisVehicules = !edition && params.get("source") === "vehicules";
+
+  const [form, setForm] = useState(() => ({ ...VIDE, vehicule_id: vehiculePreselectionne }));
+  const [kmManuel, setKmManuel] = useState(false);
   const [statut, setStatut] = useState(null);
   const [archive, setArchive] = useState(false);
   const [errors, setErrors] = useState({});
@@ -41,6 +47,21 @@ export default function EntretienForm() {
     return () => { actif = false; };
   }, [tentativeVehicules]);
 
+  // Suit un changement de query param sans remonter le composant.
+  useEffect(() => {
+    if (edition) return;
+    setForm((f) => ({ ...f, vehicule_id: vehiculePreselectionne }));
+    setKmManuel(false);
+  }, [vehiculePreselectionne, edition]);
+
+  // Le kilometrage saisi ne peut pas etre inferieur au compteur du vehicule : on le pre-remplit.
+  useEffect(() => {
+    if (edition || kmManuel || !form.vehicule_id || vehiculesLoading) return;
+    const v = vehicules.find((x) => String(x.id) === String(form.vehicule_id));
+    if (!v || v.kilometrage == null) return;
+    setForm((f) => f.kilometrage === String(v.kilometrage) ? f : { ...f, kilometrage: String(v.kilometrage) });
+  }, [edition, kmManuel, form.vehicule_id, form.kilometrage, vehiculesLoading, vehicules]);
+
   useEffect(() => {
     if (!edition) return;
     (async () => {
@@ -66,6 +87,17 @@ export default function EntretienForm() {
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const changerType = (t) => setForm((f) => ({ ...f, type: t, categorie: CATEGORIES[t][0] }));
+
+  // Changer de vehicule realigne le compteur : sinon le backend refuserait un km trop bas.
+  const changerVehicule = (id) => {
+    const v = vehicules.find((x) => String(x.id) === String(id));
+    setKmManuel(false);
+    setForm((f) => ({
+      ...f,
+      vehicule_id: id,
+      kilometrage: v?.kilometrage == null ? "" : String(v.kilometrage),
+    }));
+  };
 
   const valider = () => {
     const e = {};
@@ -130,7 +162,7 @@ export default function EntretienForm() {
     <>
       <div className="page-head">
         <div>
-          <Link className="back" to={edition ? `/entretien/${id}` : "/entretien/liste"}>&larr; Retour</Link>
+          <Link className="back" to={edition ? `/entretien/${id}` : depuisVehicules ? "/entretien/vehicules" : "/entretien/liste"}>&larr; Retour</Link>
           <h1>{edition ? `Modifier l'entretien #${id}` : "Nouvel entretien"}</h1>
         </div>
       </div>
@@ -154,7 +186,7 @@ export default function EntretienForm() {
         <fieldset disabled={!pretAAjouter || saving} style={{ border: 0, padding: 0, margin: 0 }}>
           <div className="grid-2">
             {champ("vehicule_id", "Vehicule",
-              <select value={form.vehicule_id} onChange={(e) => set("vehicule_id", e.target.value)} disabled={edition || vehiculesLoading || Boolean(vehiculesError)}>
+              <select value={form.vehicule_id} onChange={(e) => changerVehicule(e.target.value)} disabled={edition || vehiculesLoading || Boolean(vehiculesError)}>
                 <option value="">{libelleVehicule}</option>
                 {vehicules.map((v) => (
                   <option key={v.id} value={v.id}>
@@ -173,7 +205,7 @@ export default function EntretienForm() {
             {champ("date_entretien", "Date",
               <input type="date" min={edition ? undefined : aujourdhui()} value={form.date_entretien} onChange={(e) => set("date_entretien", e.target.value)} />)}
             {champ("kilometrage", "Kilometrage",
-              <input type="number" min="0" value={form.kilometrage} onChange={(e) => set("kilometrage", e.target.value)} />)}
+              <input type="number" min="0" value={form.kilometrage} onChange={(e) => { setKmManuel(true); set("kilometrage", e.target.value); }} />)}
             {champ("cout", "Cout (MAD)",
               <input type="number" min="0" step="0.01" value={form.cout} onChange={(e) => set("cout", e.target.value)} />)}
           </div>
@@ -184,7 +216,7 @@ export default function EntretienForm() {
             <button className="btn btn-primary" disabled={!pretAAjouter || saving}>
               {saving ? "Enregistrement..." : edition ? "Enregistrer" : "Creer l'entretien"}
             </button>
-            <Link className="btn" to="/entretien/liste">Annuler</Link>
+            <Link className="btn" to={edition ? `/entretien/${id}` : depuisVehicules ? "/entretien/vehicules" : "/entretien/liste"}>Annuler</Link>
           </div>
         </fieldset>
       </form>

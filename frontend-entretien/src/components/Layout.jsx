@@ -30,6 +30,7 @@ export default function Layout() {
           {STAFF.includes(role) && (
             <>
               <NavLink to="/entretien" end>Tableau de bord</NavLink>
+              <NavLink to="/entretien/vehicules">Vehicules</NavLink>
               <NavLink to="/entretien/liste">Entretiens</NavLink>
               <NavLink to="/entretien/liste?archives=seulement">Archives</NavLink>
               <NavLink to="/entretien/declarations">Declarations de panne</NavLink>
