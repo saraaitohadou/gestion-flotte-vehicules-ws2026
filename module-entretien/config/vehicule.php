@@ -1,8 +1,6 @@
 <?php
 
 return [
-    'check'    => filter_var(env('VEHICULE_CHECK', false), FILTER_VALIDATE_BOOLEAN),
-
     /** Source de vérité UNIQUE pour l'URL du service Véhicule (utilisée par VehiculeClient). */
     'url'      => rtrim((string) env('VEHICULE_SERVICE_URL', 'http://localhost:8001'), '/'),
 

@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class IntegrationOutbox extends Model
 {
@@ -37,11 +36,6 @@ class IntegrationOutbox extends Model
             'applique_at'           => 'datetime',
             'derniere_tentative_at' => 'datetime',
         ];
-    }
-
-    public function entretien(): BelongsTo
-    {
-        return $this->belongsTo(Entretien::class);
     }
 
     /** Nombre de tentatives autorisé (valeur par défaut incluse pour les lignes historiques). */
