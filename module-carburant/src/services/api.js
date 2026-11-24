@@ -47,6 +47,8 @@ export const getAlerts = (params) => {
 export const getFill = (id) => request(`/carburants/${id}`);
 export const getVehicles = () => request("/carburants/references/vehicules");
 export const getDrivers = () => request("/carburants/references/chauffeurs");
+export const getLatestMaintenance = (vehicleId) =>
+  request(`/carburants/references/vehicules/${encodeURIComponent(vehicleId)}/dernier-entretien`);
 export const createFill = (body) => request("/carburants", { method: "POST", body: JSON.stringify(body) });
 export const updateFill = (id, body) => request(`/carburants/${id}`, { method: "PATCH", body: JSON.stringify(body) });
 export const deleteFill = (id) => request(`/carburants/${id}`, { method: "DELETE" });

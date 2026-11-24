@@ -94,6 +94,29 @@ def test_liste_chauffeurs_de_reference(client, monkeypatch):
     assert response.json() == chauffeurs
 
 
+def test_dernier_entretien_de_reference(client, monkeypatch):
+    entretien = {
+        "date_entretien": "2026-10-12",
+        "type": "PREVENTIF",
+        "categorie": "VIDANGE",
+    }
+    monkeypatch.setattr("routers.carburant.clients.dernier_entretien_vehicule", lambda vid: entretien)
+    response = client.get("/carburants/references/vehicules/1/dernier-entretien")
+    assert response.status_code == 200
+    assert response.json() == entretien
+
+
+def test_dernier_entretien_est_limite_au_vehicule_du_chauffeur(client, monkeypatch):
+    monkeypatch.setattr(
+        "routers.carburant.clients.dernier_entretien_vehicule",
+        lambda vid: pytest.fail("un chauffeur ne doit pas voir l'entretien d'un autre vehicule"),
+    )
+    client.headers["Authorization"] = f"Bearer {token_chauffeur(12)}"
+    response = client.get("/carburants/references/vehicules/99/dernier-entretien")
+    assert response.status_code == 200
+    assert response.json() is None
+
+
 def test_service_vehicule_indisponible(client, services):
     vid, cid = preparer(services)
     services.en_panne.add("Vehicule")

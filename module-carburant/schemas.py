@@ -22,6 +22,12 @@ class ChauffeurReference(BaseModel):
     prenom: str
 
 
+class EntretienReference(BaseModel):
+    date_entretien: date
+    type: str
+    categorie: Optional[str] = None
+
+
 # ---------- Carburant ----------
 
 class CarburantCreate(BaseModel):
