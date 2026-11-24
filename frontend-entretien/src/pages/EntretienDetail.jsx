@@ -19,6 +19,9 @@ export default function EntretienDetail() {
   const [e, setE] = useState(null);
   const [vehicule, setVehicule] = useState(null);
   const [historique, setHistorique] = useState([]);
+  const [carburant, setCarburant] = useState(null);
+  const [erreurCarburant, setErreurCarburant] = useState("");
+  const [chargementCarburant, setChargementCarburant] = useState(false);
   const [onglet, setOnglet] = useState("infos");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -40,6 +43,19 @@ export default function EntretienDetail() {
       }
       const h = await api.historiqueVehicule(data.vehicule_id);
       setHistorique(h.data ?? []);
+
+      // Statistiques carburant : appel REST via Entretien, sans acces direct a la table.
+      setChargementCarburant(true);
+      setErreurCarburant("");
+      try {
+        const c = await api.carburantVehicule(data.vehicule_id);
+        setCarburant(c.data ?? null);
+      } catch (err) {
+        setCarburant(null);
+        setErreurCarburant(messageErreur(err, "charger les statistiques carburant"));
+      } finally {
+        setChargementCarburant(false);
+      }
     } catch (err) {
       setError(messageErreur(err, "charger l'entretien"));
     } finally {
@@ -111,6 +127,7 @@ export default function EntretienDetail() {
           Historique du vehicule #{e.vehicule_id} ({historique.length})
         </button>
         <button className={`btn ${onglet === "statuts" ? "btn-primary" : ""}`} onClick={() => setOnglet("statuts")}>Statuts ({e.historique?.length ?? 0})</button>
+        <button className={`btn ${onglet === "carburant" ? "btn-primary" : ""}`} onClick={() => setOnglet("carburant")}>Carburant</button>
       </div>
 
       {onglet === "infos" && (
@@ -179,6 +196,28 @@ export default function EntretienDetail() {
                 ))}
               </tbody>
             </table>
+          )}
+        </div>
+      )}
+
+      {onglet === "carburant" && (
+        <div className="panel">
+          <h2>Statistiques carburant — véhicule #{e.vehicule_id}</h2>
+          {erreurCarburant ? (
+            <p className="alert alert-bad" role="alert">{erreurCarburant}</p>
+          ) : chargementCarburant ? (
+            <p className="muted">Chargement des statistiques carburant...</p>
+          ) : carburant ? (
+            <>
+              {ligne("Pleins", carburant.nombre_pleins)}
+              {ligne("Total", `${Number(carburant.total_litres).toLocaleString("fr-FR")} L`)}
+              {ligne("Coût total", formatMoney(carburant.cout_total))}
+              {ligne("Distance", formatKm(carburant.distance_km))}
+              {ligne("Consommation", carburant.consommation_l_100km == null ? "-" : `${carburant.consommation_l_100km} L/100 km`)}
+              {ligne("Coût au km", carburant.cout_au_km == null ? "-" : `${carburant.cout_au_km} MAD/km`)}
+            </>
+          ) : (
+            <p className="muted">Aucune statistique carburant disponible.</p>
           )}
         </div>
       )}

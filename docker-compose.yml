@@ -99,6 +99,7 @@ services:
       ADMIN_USERNAME: ${ADMIN_USERNAME}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       VEHICULE_SERVICE_URL: http://vehicule-service
+      CARBURANT_SERVICE_URL: http://carburant-service:8000
     depends_on:
       db-commune:
         condition: service_healthy
@@ -162,6 +163,9 @@ services:
       VEHICULE_API_PREFIX: "/api"
       CHAUFFEUR_SERVICE_URL: "http://chauffeur-service:8000"
       CHAUFFEUR_API_PREFIX: "/api"
+      CARBURANT_SERVICE_URL: "http://carburant-service:8000"
+      CARBURANT_API_PREFIX: ""
+      CARBURANT_SERVICE_TIMEOUT: 3
       SYNCHRONISATION_TENTATIVES_MAX: 3
     depends_on:
       db-commune:

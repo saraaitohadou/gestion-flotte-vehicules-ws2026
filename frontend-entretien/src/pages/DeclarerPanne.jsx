@@ -44,7 +44,7 @@ export default function DeclarerPanne() {
       .finally(() => { if (actif) setChargementVehicules(false); });
 
     api.chauffeurs()
-      .then((r) => { if (actif) setChauffeurs(r.data ?? []); })
+      .then((r) => { if (actif) setChauffeurs(Array.isArray(r) ? r : (r?.data ?? [])); })
       .catch((e) => { if (actif) { setChauffeurs([]); setErreurChauffeurs(messageErreur(e, "charger les chauffeurs")); } })
       .finally(() => { if (actif) setChargementChauffeurs(false); });
 
