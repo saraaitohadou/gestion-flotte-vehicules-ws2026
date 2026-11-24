@@ -33,10 +33,33 @@ export default function Dashboard() {
   const monthlyLitres = monthFills.reduce((sum, fill) => sum + (fill.quantite_litres || 0), 0);
   const consumptions = monthFills.map((fill) => fill.consommation_l_100km).filter((value) => value != null);
   const averageConsumption = consumptions.length ? consumptions.reduce((sum, value) => sum + value, 0) / consumptions.length : null;
-  const distance = fills.length >= 2
-    ? Math.max(...fills.map((fill) => fill.kilometrage || 0)) - Math.min(...fills.map((fill) => fill.kilometrage || 0))
-    : 0;
-  const costPerKm = distance > 0 ? fills.reduce((sum, fill) => sum + (fill.montant_total || 0), 0) / distance : null;
+  const costPerKm = useMemo(() => {
+    const fillsByVehicle = new Map();
+    fills.forEach((fill) => {
+      const vehicleFills = fillsByVehicle.get(fill.vehicule_id) || [];
+      vehicleFills.push(fill);
+      fillsByVehicle.set(fill.vehicule_id, vehicleFills);
+    });
+
+    let totalDistance = 0;
+    let totalCost = 0;
+    fillsByVehicle.forEach((vehicleFills) => {
+      const ordered = [...vehicleFills].sort((a, b) =>
+        a.date_plein.localeCompare(b.date_plein) ||
+        a.kilometrage - b.kilometrage ||
+        a.id - b.id
+      );
+      if (ordered.length < 2) return;
+
+      const distance = ordered[ordered.length - 1].kilometrage - ordered[0].kilometrage;
+      if (distance <= 0) return;
+
+      totalDistance += distance;
+      totalCost += ordered.reduce((sum, fill) => sum + (fill.montant_total || 0), 0) - ordered[0].montant_total;
+    });
+
+    return totalDistance > 0 ? totalCost / totalDistance : null;
+  }, [fills]);
 
   const chartData = useMemo(() => {
     const monthNames = ["Janv.","Févr.","Mars","Avr.","Mai","Juin","Juil.","Août","Sept.","Oct.","Nov.","Déc."];

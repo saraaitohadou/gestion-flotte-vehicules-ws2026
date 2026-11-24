@@ -106,6 +106,16 @@ def get_or_404(db: Session, carburant_id: int) -> models.Carburant:
 # ---------- Statistiques ----------
 # (declare avant /{carburant_id} pour eviter toute ambiguite de routage)
 
+@router.get("/references/vehicules", response_model=List[schemas.VehiculeReference])
+def lister_vehicules(auth: dict = Depends(require_auth)):
+    return clients.lister_vehicules()
+
+
+@router.get("/references/chauffeurs", response_model=List[schemas.ChauffeurReference])
+def lister_chauffeurs(auth: dict = Depends(require_auth)):
+    return clients.lister_chauffeurs()
+
+
 @router.get("/stats/vehicules/{vehicule_id}", response_model=schemas.StatsCarburant)
 def stats_vehicule(
     vehicule_id: int,

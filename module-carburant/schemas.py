@@ -11,6 +11,17 @@ class TypeCarburant(str, Enum):
     gpl = "gpl"
 
 
+class VehiculeReference(BaseModel):
+    id: int
+    immatriculation: str
+
+
+class ChauffeurReference(BaseModel):
+    id_chauffeur: int
+    nom: str
+    prenom: str
+
+
 # ---------- Carburant ----------
 
 class CarburantCreate(BaseModel):
