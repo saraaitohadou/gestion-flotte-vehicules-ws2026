@@ -1,8 +1,6 @@
 import { useState } from 'react'
 import { MODULES } from './config/modules'
 
-const AUTH_URL = import.meta.env.VITE_AUTH_URL ?? 'http://localhost:8002/api/auth/login'
-
 // Styles visuels métier par module (sans aucune info technique)
 const MODULE_STYLES = {
   vehicules: {
@@ -36,7 +34,7 @@ const MODULE_STYLES = {
 }
 
 export default function App() {
-  const [token, setToken] = useState(() => {
+  const [token] = useState(() => {
     const params = new URLSearchParams(window.location.search)
     const urlToken = params.get('token')
     if (urlToken) {
@@ -46,36 +44,9 @@ export default function App() {
     }
     return localStorage.getItem('flotte.token')
   })
-  const [username, setUsername] = useState('admin')
-  const [password, setPassword] = useState('200383')
-  const [erreur, setErreur] = useState('')
-  const [loading, setLoading] = useState(false)
-
-  const handleLogin = async (e) => {
-    e.preventDefault()
-    setErreur('')
-    setLoading(true)
-    try {
-      const res = await fetch(AUTH_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
-      })
-      if (!res.ok) throw new Error('Identifiants incorrects')
-      const data = await res.json()
-      localStorage.setItem('flotte.token', data.access_token)
-      setToken(data.access_token)
-    } catch (err) {
-      setErreur(err.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
   const handleLogout = () => {
     localStorage.removeItem('flotte.token')
-    setToken(null)
-    window.location.href = 'http://localhost:5174/connexion?logout=1'
+    window.location.replace('http://localhost:5174/connexion?logout=1')
   }
 
   const ouvrirModule = (urlFrontend) => {
@@ -85,61 +56,8 @@ export default function App() {
 
   // ÉCRAN 1 : CONNEXION
   if (!token) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 border border-slate-100">
-          <div className="flex flex-col items-center mb-6">
-            <div className="w-12 h-12 rounded-xl bg-amber-400 text-slate-900 font-extrabold text-xl flex items-center justify-center shadow-sm mb-3">
-              F
-            </div>
-            <h1 className="text-2xl font-bold text-slate-800">Flotte Manager</h1>
-            <p className="text-slate-500 text-sm text-center mt-1">
-              Espace d&apos;administration centralisé
-            </p>
-          </div>
-
-          {erreur && (
-            <div className="bg-red-50 border border-red-200 text-red-600 text-sm p-3 rounded-xl mb-4">
-              {erreur}
-            </div>
-          )}
-
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Nom d&apos;utilisateur
-              </label>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-600 transition"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Mot de passe
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-600 transition"
-                required
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-slate-900 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold py-2.5 rounded-xl transition cursor-pointer shadow-sm"
-            >
-              {loading ? 'Connexion en cours...' : 'Se connecter'}
-            </button>
-          </form>
-        </div>
-      </div>
-    )
+    window.location.replace('http://localhost:5174/connexion')
+    return null
   }
 
   // ÉCRAN 2 : TABLEAU DE BORD ADMINISTRATEUR

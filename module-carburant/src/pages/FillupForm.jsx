@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { createFill, getFill, getFills, updateFill } from "../services/api";
+import { createFill, getDrivers, getFill, getVehicles, updateFill } from "../services/api";
 import Toast from "../components/Toast";
 
 export default function FillupForm() {
@@ -19,10 +19,12 @@ export default function FillupForm() {
   });
 
   useEffect(() => {
-    getFills({ limit: 500 }).then((fills) => setReferences({
-      vehicles: [...new Set(fills.map((fill) => fill.vehicule_id))].sort((a,b) => a-b),
-      drivers: [...new Set(fills.map((fill) => fill.chauffeur_id).filter((value) => value != null))].sort((a,b) => a-b),
-    })).catch(() => {});
+    getVehicles()
+      .then((vehicles) => setReferences((current) => ({ ...current, vehicles })))
+      .catch((error) => setToast({ type: "error", message: error.message }));
+    getDrivers()
+      .then((drivers) => setReferences((current) => ({ ...current, drivers })))
+      .catch((error) => setToast({ type: "error", message: error.message }));
     if (editing) getFill(id).then((fill) => setForm({
       vehicule_id: fill.vehicule_id, chauffeur_id: fill.chauffeur_id ?? "",
       date_plein: fill.date_plein, station: fill.station ?? "", type_carburant: fill.type_carburant,
@@ -81,8 +83,8 @@ export default function FillupForm() {
         <section className="card form-card">
           <div className="card-heading"><h2>Informations du plein</h2><span className="required-note">* Champs obligatoires</span></div>
           <div className="form-grid">
-            <label className="field"><span>Véhicule *</span><select value={form.vehicule_id} onChange={(event) => setField("vehicule_id", event.target.value)} aria-invalid={Boolean(errors.vehicule_id)}><option value="">Sélectionner</option>{references.vehicles.map((vehicle) => <option key={vehicle} value={vehicle}>Véhicule {vehicle}</option>)}</select>{errors.vehicule_id && <small className="field-error">{errors.vehicule_id}</small>}</label>
-            <label className="field"><span>Chauffeur</span><select value={form.chauffeur_id} onChange={(event) => setField("chauffeur_id", event.target.value)}><option value="">Aucun</option>{references.drivers.map((driver) => <option key={driver} value={driver}>Chauffeur {driver}</option>)}</select></label>
+            <label className="field"><span>Véhicule *</span><select value={form.vehicule_id} onChange={(event) => setField("vehicule_id", event.target.value)} aria-invalid={Boolean(errors.vehicule_id)}><option value="">Sélectionner</option>{references.vehicles.map((vehicle) => <option key={vehicle.id} value={vehicle.id}>{vehicle.immatriculation}</option>)}</select>{errors.vehicule_id && <small className="field-error">{errors.vehicule_id}</small>}</label>
+            <label className="field"><span>Chauffeur</span><select value={form.chauffeur_id} onChange={(event) => setField("chauffeur_id", event.target.value)}><option value="">Aucun</option>{references.drivers.map((driver) => <option key={driver.id_chauffeur} value={driver.id_chauffeur}>{driver.nom} {driver.prenom}</option>)}</select></label>
             <label className="field"><span>Date du plein *</span><input type="date" value={form.date_plein} onChange={(event) => setField("date_plein", event.target.value)} aria-invalid={Boolean(errors.date_plein)} />{errors.date_plein && <small className="field-error">{errors.date_plein}</small>}</label>
             <label className="field"><span>Station</span><input type="text" maxLength="100" value={form.station} onChange={(event) => setField("station", event.target.value)} placeholder="Nom de la station" /></label>
           </div>

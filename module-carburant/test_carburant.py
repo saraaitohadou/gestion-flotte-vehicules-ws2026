@@ -72,6 +72,28 @@ def test_references_inconnues(client, services):
     assert r.status_code == 404
 
 
+def test_liste_vehicules_de_reference(client, monkeypatch):
+    vehicules = [
+        {"id": 1, "immatriculation": "12345-A-6"},
+        {"id": 2, "immatriculation": "67890-B-1"},
+    ]
+    monkeypatch.setattr("routers.carburant.clients.lister_vehicules", lambda: vehicules)
+    response = client.get("/carburants/references/vehicules")
+    assert response.status_code == 200
+    assert response.json() == vehicules
+
+
+def test_liste_chauffeurs_de_reference(client, monkeypatch):
+    chauffeurs = [
+        {"id_chauffeur": 1, "nom": "Alami", "prenom": "Youssef"},
+        {"id_chauffeur": 2, "nom": "Bennani", "prenom": "Salma"},
+    ]
+    monkeypatch.setattr("routers.carburant.clients.lister_chauffeurs", lambda: chauffeurs)
+    response = client.get("/carburants/references/chauffeurs")
+    assert response.status_code == 200
+    assert response.json() == chauffeurs
+
+
 def test_service_vehicule_indisponible(client, services):
     vid, cid = preparer(services)
     services.en_panne.add("Vehicule")
