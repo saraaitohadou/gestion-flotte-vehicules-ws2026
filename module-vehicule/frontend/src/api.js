@@ -5,9 +5,9 @@ if (urlToken) {
   window.history.replaceState({}, document.title, window.location.pathname)
 }
 
-const BASE = import.meta.env.VITE_API_URL ?? '/api'
-const CHAUFFEUR_BASE = import.meta.env.VITE_CHAUFFEUR_API_URL ?? 'http://localhost:8002/api'
-const AUTH_URL = import.meta.env.VITE_AUTH_URL ?? 'http://localhost:8002/api/auth/login'
+const BASE = import.meta.env.VITE_API_URL || '/api'
+const CHAUFFEUR_BASE = import.meta.env.VITE_CHAUFFEUR_API_URL || '/api'
+const AUTH_URL = '/api/auth/login'
 
 async function getToken() {
   let token = localStorage.getItem('flotte.token')
