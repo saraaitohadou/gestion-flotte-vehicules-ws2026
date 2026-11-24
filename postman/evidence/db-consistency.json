@@ -1,0 +1,7 @@
+﻿{
+    "Outbox":  "integrations_outbox",
+    "Rows":  "[{\"statut\":\"APPLIQUE\",\"n\":8}]",
+    "Entretiens":  "[{\"statut\":\"ANNULE\",\"n\":8},{\"statut\":\"PLANIFIE\",\"n\":1},{\"statut\":\"TERMINE\",\"n\":3}]",
+    "Vehicule1":  "[{\"id\":1,\"statut\":\"DISPONIBLE\",\"kilometrage\":45400}]",
+    "Alertes":  "[{\"id\":1,\"entretien_id\":8,\"type\":\"PROCHE\",\"resolue_at\":\"2026-11-23 16:08:03\"},{\"id\":2,\"entretien_id\":17,\"type\":\"EN_RETARD\",\"resolue_at\":\"2026-11-23 16:07:59\"}]"
+}

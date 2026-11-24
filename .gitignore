@@ -36,6 +36,5 @@ DAT_Gestion_Flotte_WS2026_v2.docx
 **/.phpunit.result.cache
 **/rapport_tests_unitaires*.xml
 
-# Métadonnées Postman locales (la collection module-entretien/postman reste versionnée)
+# Métadonnées Postman locales (les collections versionnées restent suivies)
 /.postman/
-/postman/
