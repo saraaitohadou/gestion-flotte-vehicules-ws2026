@@ -1,4 +1,4 @@
-from datetime import date, datetime
+﻿from datetime import date, datetime
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -18,7 +18,7 @@ class VehiculeAssigneOut(BaseModel):
     marque: Optional[str] = None
     modele: Optional[str] = None
     annee: Optional[int] = None
-    kilometrage: Optional[int] = None
+    kilometrage: Optional[float] = None
     typeCarburant: Optional[str] = None
     statut: Optional[str] = None
 
@@ -72,3 +72,4 @@ class SignalementEntretienIn(BaseModel):
     date_entretien: date = Field(default_factory=date.today, description="Date de l'entretien")
     kilometrage: int = Field(..., ge=0, description="Kilométrage du véhicule lors du signalement")
     cout: float = Field(0.0, ge=0, description="Coût estimé ou engagé")
+

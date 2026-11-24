@@ -1,3 +1,4 @@
+﻿from fastapi.responses import RedirectResponse
 import os
 import time
 from contextlib import asynccontextmanager
@@ -62,7 +63,7 @@ def home():
     return {
         "status": "online",
         "message": "module Chauffeur pret !",
-        "connexion": "/connexion",
+        "connexion": "http://localhost:5174/connexion?logout=1",
         "espace_chauffeur": "/espace-chauffeur"
     }
 
@@ -74,11 +75,7 @@ def home():
 @app.get("/connexion", include_in_schema=False)
 @app.get("/login", include_in_schema=False)
 def page_connexion():
-    html_path = os.path.join(static_dir, "connexion.html")
-    if os.path.exists(html_path):
-        return FileResponse(html_path)
-    return FileResponse(os.path.join(static_dir, "espace-chauffeur.html"))
-
+    return RedirectResponse(url="http://localhost:5174/connexion?logout=1")
 
 @app.get("/espace-chauffeur", include_in_schema=False)
 def page_espace_chauffeur():

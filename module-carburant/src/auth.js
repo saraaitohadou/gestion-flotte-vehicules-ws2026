@@ -1,23 +1,21 @@
-const KEY = "flotte.carburant.token";
+﻿const KEY = "flotte.carburant.token";
 const PORTAIL_KEY = "flotte.token";
 
 export const getToken = () => {
-  const fragment = window.location.hash.startsWith("#token=")
-    ? window.location.hash.slice("#token=".length)
-    : "";
+  const queryToken = new URLSearchParams(window.location.search).get("token") || ""; const fragment = queryToken || (window.location.hash.startsWith("#token=") ? window.location.hash.slice("#token=".length) : "");
 
   if (fragment) {
     const fragmentUser = userFromToken(fragment);
     if (!fragmentUser) {
       clearToken();
-      window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+      window.history.replaceState({}, document.title, window.location.pathname);
       return null;
     }
     setToken(fragment);
   }
 
   if (fragment || window.location.hash.startsWith("#token=")) {
-    window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+    window.history.replaceState({}, document.title, window.location.pathname);
   }
 
   const storedToken = localStorage.getItem(KEY) || localStorage.getItem(PORTAIL_KEY);

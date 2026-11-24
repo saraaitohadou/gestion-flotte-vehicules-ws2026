@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../components/AuthContext.jsx";
 import { getToken, setToken } from "../auth.js";
@@ -59,7 +59,7 @@ export default function Login() {
         setSuccessMsg("Connexion réussie ! Redirection vers l'Espace Chauffeur...");
 
         setTimeout(() => {
-          window.location.href = "http://localhost:8002/espace-chauffeur";
+          window.location.href = `http://localhost:8002/espace-chauffeur#token=${encodeURIComponent(data.access_token)}`;
         }, 500);
       } catch (err) {
         if (err.status === 403) {
