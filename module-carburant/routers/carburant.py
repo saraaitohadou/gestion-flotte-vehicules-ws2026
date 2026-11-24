@@ -1,7 +1,7 @@
 from datetime import date
-from typing import Annotated, List, Optional
+from typing import List, Optional
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 import clients  
 import models
@@ -195,7 +195,7 @@ def lister_anomalies(
 
 @router.post("", response_model=schemas.CarburantOut, status_code=status.HTTP_201_CREATED)
 def creer_plein(
-    data: Annotated[dict, Body(embed=False)],
+    data: schemas.CarburantCreate,
     db: Session = Depends(get_db),
     auth: dict = Depends(require_auth),
 ):
@@ -206,13 +206,7 @@ def creer_plein(
         raise HTTPException(403, "Lecture seule pour un chauffeur")
     if role not in (ROLE_ADMIN, ROLE_GESTIONNAIRE, "SERVICE"):
         raise HTTPException(403, "Acces refuse")
-    if isinstance(data, schemas.CarburantCreate):
-        payload = data
-    else:
-        try:
-            payload = schemas.CarburantCreate.model_validate(data)
-        except Exception as exc:
-            raise HTTPException(422, exc.errors())
+    payload = data
     data = payload
     verifier_references(data.vehicule_id, data.chauffeur_id)
     verifier_affectation(data.vehicule_id, data.chauffeur_id)
@@ -299,7 +293,7 @@ def lire_plein(
 @router.patch("/{carburant_id}", response_model=schemas.CarburantOut)
 def modifier_plein(
     carburant_id: int,
-    data: Annotated[dict, Body(embed=False)],
+    data: schemas.CarburantUpdate,
     db: Session = Depends(get_db),
     auth: dict = Depends(require_auth),
 ):
@@ -310,14 +304,7 @@ def modifier_plein(
         raise HTTPException(403, "Lecture seule pour un chauffeur")
     if role not in (ROLE_ADMIN, ROLE_GESTIONNAIRE, "SERVICE"):
         raise HTTPException(403, "Acces refuse")
-    if isinstance(data, schemas.CarburantUpdate):
-        changes = data.model_dump(exclude_unset=True)
-    else:
-        try:
-            payload = schemas.CarburantUpdate.model_validate(data)
-            changes = payload.model_dump(exclude_unset=True)
-        except Exception as exc:
-            raise HTTPException(422, exc.errors())
+    changes = data.model_dump(exclude_unset=True)
     obj = get_or_404(db, carburant_id)
     if "type_carburant" in changes and changes["type_carburant"] is not None:
         changes["type_carburant"] = changes["type_carburant"].value
