@@ -93,17 +93,28 @@ async function api(chemin, options = {}) {
 let referencesChargees = null;
 async function chargerReferences() {
   if (referencesChargees) return referencesChargees;
-  const pleins = await api("/carburants?limit=500");
-  const vehicules = [...new Set(pleins.map((p) => p.vehicule_id))].sort((a, b) => a - b);
-  const chauffeurs = [...new Set(pleins.map((p) => p.chauffeur_id).filter((id) => id !== null))]
-    .sort((a, b) => a - b);
+  // Les listes viennent des services Véhicule et Chauffeur via les relais
+  // same-origin du service Carburant (évite CORS et token dans le navigateur).
+  const [vehicules, chauffeurs] = await Promise.all([
+    api("/references/vehicules"),
+    api("/references/chauffeurs"),
+  ]);
   referencesChargees = { vehicules, chauffeurs };
   return referencesChargees;
 }
 
+function referencesEnOptions(liste) {
+  return (liste || []).map((ref) => (
+    ref && typeof ref === "object"
+      ? { id: ref.id, label: ref.label ?? String(ref.id) }
+      : { id: ref, label: String(ref) }
+  ));
+}
+
 function optionsIds(ids, selection, tout = false) {
+  const options = referencesEnOptions(ids);
   return (tout ? `<option value="">Tous</option>` : `<option value="">Sélectionner</option>`) +
-    ids.map((id) => `<option value="${esc(id)}" ${String(selection) === String(id) ? "selected" : ""}>${esc(id)}</option>`).join("");
+    options.map((o) => `<option value="${esc(o.id)}" ${String(selection) === String(o.id) ? "selected" : ""}>${esc(o.label)}</option>`).join("");
 }
 
 function csvValeur(valeur) {

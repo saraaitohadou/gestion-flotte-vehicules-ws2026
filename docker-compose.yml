@@ -18,6 +18,11 @@ services:
     volumes:
       - db_commune_data:/var/lib/mysql
       - ./db/init:/docker-entrypoint-initdb.d:ro
+      # Schemas versionnes sources par db/init/*.sql (jamais executes deux fois).
+      # Hors de /docker-entrypoint-initdb.d (monte en lecture seule) pour eviter
+      # une erreur de creation de point de montage.
+      - ./db/migrations:/docker-entrypoint-migrations/vehicule:ro
+      - ./module-chauffeur/db/migrations:/docker-entrypoint-migrations/chauffeur:ro
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD"]
       interval: 5s
@@ -86,7 +91,11 @@ services:
       - "8002:8000"
     environment:
       <<: *auth-env
-      DATABASE_URL: mysql+pymysql://${DB_USER:-root}:${DB_ROOT_PASSWORD}@db-commune:3306/${DB_NAME:-gestion_flotte}
+      DB_HOST: db-commune
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-gestion_flotte}
+      DB_USER: ${DB_USER:-root}
+      DB_PASSWORD: ${DB_ROOT_PASSWORD}
       ADMIN_USERNAME: ${ADMIN_USERNAME}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       VEHICULE_SERVICE_URL: http://vehicule-service
@@ -109,7 +118,11 @@ services:
       - "${CARBURANT_PORT:-8003}:8000"
     environment:
       <<: *auth-env
-      DATABASE_URL: mysql+pymysql://${DB_USER:-root}:${DB_ROOT_PASSWORD}@db-commune:3306/${DB_NAME:-gestion_flotte}
+      DB_HOST: db-commune
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-gestion_flotte}
+      DB_USER: ${DB_USER:-root}
+      DB_PASSWORD: ${DB_ROOT_PASSWORD}
       VEHICULE_SERVICE_URL: http://vehicule-service
       CHAUFFEUR_SERVICE_URL: http://chauffeur-service:8000
     depends_on:

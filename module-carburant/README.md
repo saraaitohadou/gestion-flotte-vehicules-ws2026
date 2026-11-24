@@ -26,20 +26,26 @@ bord, liste des pleins (filtres, pagination, modification, suppression),
 nouveau plein, alertes de surconsommation et statistiques d'un vehicule. Elle
 appelle l'API du meme service (pas de configuration). Les vehicules et
 chauffeurs se saisissent par leur identifiant (la liste des vehicules appartient
-au service Vehicule).
+au service Vehicule). Si un build React est present dans `frontend-dist/`, il est
+servi ; sinon le service retombe sur `static/` (aucun crash au demarrage).
 
 ## Variables d'environnement
 
 | Variable | Role | Defaut |
 |---|---|---|
-| `DATABASE_URL` | Base MySQL commune du projet | `mysql+pymysql://root:rootpassword@localhost:3306/flotte_db` |
+| `DATABASE_URL` | Surcharge explicite (optionnelle) de l'URL SQLAlchemy | construite depuis `DB_*` |
+| `DB_HOST` / `DB_PORT` | Hote et port MySQL communs | `db-commune` / `3306` |
+| `DB_NAME` | Base commune | `gestion_flotte` |
+| `DB_USER` / `DB_PASSWORD` | Identifiants MySQL communs | `root` / `rootpassword` |
 | `VEHICULE_SERVICE_URL` | Adresse du service Vehicule | `http://vehicule-service` |
 | `CHAUFFEUR_SERVICE_URL` | Adresse du service Chauffeur | `http://chauffeur-service:8000` |
 | `SERVICE_TIMEOUT` | Delai d'attente des appels (secondes) | `3` |
 | `SEUIL_SURCONSOMMATION` | Seuil d'alerte de surconsommation | `0.30` (30 %) |
 
-La table `carburants` est creee automatiquement au demarrage (avec plusieurs
-tentatives si MySQL n'est pas encore pret).
+La table `carburants` est creee par **Alembic** (`alembic upgrade head`, lance au
+demarrage avec plusieurs tentatives si MySQL n'est pas encore pret). Il n'y a plus
+de `Base.metadata.create_all()` en production. Alembic enregistre la revision dans
+`alembic_version` ; la migration est idempotente et ne contient aucun `DROP TABLE`.
 
 ## Tests
 
@@ -56,8 +62,9 @@ Chauffeur (voir `conftest.py`): ni Docker ni MySQL ne sont necessaires.
 | Fichier | Role |
 |---|---|
 | `static/` | Interface web (`index.html`, `style.css`, `app.js`) |
-| `main.py` | Cree l'application, les tables au demarrage, branche le routeur |
-| `database.py` | Connexion a la base (`DATABASE_URL`) |
+| `main.py` | Cree l'application, lance `alembic upgrade head`, branche le routeur |
+| `database.py` | Connexion a la base (`DB_*` puis surcharge `DATABASE_URL`) |
+| `alembic.ini`, `alembic/` | Migrations versionnees de la table `carburants` |
 | `models.py` | Table `Carburant` (`vehicule_id` et `chauffeur_id` sont de simples identifiants) |
 | `schemas.py` | Validation des entrees/sorties (Pydantic) |
 | `clients.py` | Appels HTTP vers les services Vehicule et Chauffeur |
