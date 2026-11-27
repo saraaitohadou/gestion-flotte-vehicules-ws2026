@@ -153,15 +153,9 @@ class EntretienController extends Controller
         $vehicule       = $this->vehicules->find($entretien->vehicule_id);
         $statutVehicule = strtoupper((string) ($vehicule['statut'] ?? 'DISPONIBLE'));
 
-        if ($statutVehicule === 'EN_MISSION') {
-            $this->vehicules->changerStatut(
-                $entretien->vehicule_id,
-                'DISPONIBLE',
-                "demarrer-liberer-{$entretien->id}"
-            );
-            $statutVehicule = 'DISPONIBLE';
-        }
-
+        // Une mission en cours n'est pas libérée ici : seul le service Chauffeur
+        // peut clôturer une mission. Tout statut autre que DISPONIBLE est refusé,
+        // sans écriture locale, sans outbox et sans PATCH vers Véhicule.
         if ($statutVehicule !== 'DISPONIBLE') {
             throw new BusinessException(
                 "Le vehicule #{$entretien->vehicule_id} doit etre DISPONIBLE pour demarrer un entretien (statut actuel : {$statutVehicule}).",

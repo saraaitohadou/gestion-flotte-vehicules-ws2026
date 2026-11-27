@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\StatutEntretien;
 use App\Enums\TypeEntretien;
 use App\Models\Entretien;
+use App\Models\IntegrationOutbox;
 use App\Support\AuthUser;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
@@ -196,6 +197,8 @@ class EntretienApiTest extends TestCase
     public function test_demarrer_refuse_un_vehicule_en_mission(): void
     {
         $this->assertDemarrerRefuse('EN_MISSION');
+        $this->assertSame(0, IntegrationOutbox::count());
+        Http::assertNotSent(fn (Request $r) => str_contains($r->url(), 'demarrer-liberer'));
     }
 
     public function test_demarrer_refuse_un_vehicule_hors_service(): void
